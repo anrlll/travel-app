@@ -1,0 +1,3 @@
+project_name: TravelApp
+language: typescript
+description: 旅行計画を支援するWebアプリケーション
