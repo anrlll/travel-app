@@ -3,7 +3,7 @@
 **プロジェクト名**: TravelApp
 **バージョン**: 1.0.0
 **最終更新日**: 2025-10-13
-**ステータス**: 要件定義中
+**ステータス**: 要件定義完了 ✅
 
 ---
 
@@ -100,31 +100,57 @@ TravelAppは、ユーザーが旅行の計画、予約、管理を簡単に行�
 
 **詳細**: [07-external-services.md](./07-external-services.md)
 
-### 確定済みAPI（6種）
+### 確定済みAPI（5種）
 - **地図**: OpenStreetMap + Leaflet
 - **天気**: OpenWeatherMap
 - **観光地**: OpenTripMap
 - **レストラン**: Foursquare Places API
-- **画像**: Cloudinary（使用量監視機能あり、将来的にCloudflare R2へ移行）
 - **メール**: Resend
+
+### 画像ストレージ
+- **Phase 1**: Base64（データベース内保存、10GB制限）
+- **Phase 2+**: Cloudflare R2（S3互換、エグレス料金なし）
 
 ---
 
-## 技術スタック（予定）
+## 技術スタック ✅
+
+**詳細**: [../technical-selection.md](../technical-selection.md)
 
 ### フロントエンド
-- React 18 + TypeScript 5
-- Vite 5
+- React 18 + TypeScript 5 + Vite 5
+- Zustand + TanStack Query
 - Tailwind CSS + shadcn/ui
-- Zustand（状態管理）
-- React Router v6
-- TanStack Query（データフェッチング）
+- React Router v6 + React Hook Form + Zod
+- react-i18next（国際化）
+- Leaflet（地図）
+- react-window（Canvas仮想化）
+
+### バックエンド
+- Fastify 4 + TypeScript 5
+- Prisma 5 + PostgreSQL 15
+- JWT + bcrypt認証
+- Zod（バリデーション）
+
+### インフラ（VPS構成）
+- 国産VPS（ConoHa/さくらVPS推奨）
+- Ubuntu 22.04 LTS
+- Nginx 1.24+（リバースプロキシ + 静的ファイル配信）
+- PM2 5+（プロセス管理）
+- PostgreSQL 15（VPS上）
+- Certbot（SSL自動更新）
 
 ### 開発ツール
-- ESLint + Prettier
-- Vitest（ユニットテスト）
-- React Testing Library
-- Playwright（E2Eテスト）
+- ESLint 8+ + Prettier 3+
+- Husky + lint-staged
+- Vitest 1.3+（ユニットテスト）
+- React Testing Library 14+
+- Playwright 1.42+（E2Eテスト）
+- GitHub Actions（CI/CD）
+
+### コスト
+- **Phase 1**: 1,000-1,500円/月（VPS 2GB）
+- **Phase 2+**: 2,800-3,500円/月（VPS 4GB + Cloudflare R2）
 
 ---
 
@@ -174,15 +200,18 @@ TravelApp/
 ## 制約事項
 
 ### 技術的制約
-- Node.js v18以上必須
+- Node.js 20 LTS以上必須
 - TypeScript厳格モード使用
 - テストカバレッジ80%以上
+- VPSスペック: Phase 1は2GB RAM推奨
 
 ### ビジネス的制約
-- 無料APIの使用を優先
-- API制限内での運用
+- Phase 1はコスト重視（月1,000-1,500円以内）
+- API無料枠内での運用
   - OpenWeatherMap: 1日1,000回まで
+  - OpenTripMap: 1日1,000回まで
   - Foursquare: 1日999回まで
+  - Resend: 1日100通まで
 
 ---
 
@@ -196,15 +225,26 @@ TravelApp/
 
 ---
 
-## 今後の予定
+## プロジェクト進捗
 
+### 完了済み ✅
 1. ✅ 旅行プラン検索 - 要件確定
 2. ✅ 旅行プランの作成と管理（キャンバスベース含む） - 要件確定
 3. ✅ 予算管理 - 要件確定
-4. ✅ 思い出の記録と共有 - 要件確定
-5. ✅ 多言語対応 - 要件確定
-6. 📝 非機能要件 - レビュー中
-7. 🚀 技術設計・実装開始
+4. ✅ 思い出の記録と共有（基本機能） - 要件確定
+5. ✅ ユーザー管理と認証 - 要件確定
+6. ✅ 多言語対応 - 要件確定
+7. ✅ 非機能要件 - 確定
+8. ✅ 外部サービス選定 - 確定
+9. ✅ 技術スタック選定 - 確定（VPS構成）
+
+### 次のステップ 🚀
+1. **VPSセットアップ**: Ubuntu 22.04インストール、SSH設定、ファイアウォール設定
+2. **開発環境構築**: Node.js、PostgreSQL、Nginx、PM2インストール
+3. **プロジェクト初期化**: package.json作成、依存関係インストール
+4. **Prismaスキーマ実装**: データベーススキーマ定義とマイグレーション
+5. **認証API実装**: JWT認証、ユーザー登録・ログイン
+6. **フロントエンド基本構築**: ルーティング、レイアウト、認証状態管理
 
 ---
 
@@ -212,4 +252,14 @@ TravelApp/
 
 - [CLAUDE.md](../../CLAUDE.md) - 実装ルールとガイドライン
 - [README.md](../../README.md) - プロジェクト概要
-- [要件定義一覧](./README.md) - 各機能の詳細要件
+- [technical-selection.md](../technical-selection.md) - 技術選定詳細
+- 要件定義詳細:
+  - [01-search-and-proposal.md](./01-search-and-proposal.md) - 検索機能
+  - [02-itinerary-management.md](./02-itinerary-management.md) - 旅程管理
+  - [02-1-canvas-planning.md](./02-1-canvas-planning.md) - キャンバス作成
+  - [03-budget-management.md](./03-budget-management.md) - 予算管理
+  - [04-memory-sharing.md](./04-memory-sharing.md) - 思い出記録
+  - [05-authentication.md](./05-authentication.md) - 認証
+  - [06-non-functional.md](./06-non-functional.md) - 非機能要件
+  - [07-external-services.md](./07-external-services.md) - 外部サービス
+  - [08-i18n.md](./08-i18n.md) - 国際化
