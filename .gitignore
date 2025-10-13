@@ -4,6 +4,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
 
 # ビルド成果物
 dist/
@@ -15,6 +18,8 @@ out/
 .env
 .env.local
 .env.*.local
+backend/.env
+frontend/.env
 
 # IDEおよびエディタ
 .vscode/
@@ -37,3 +42,15 @@ coverage/
 # OS固有
 Thumbs.db
 desktop.ini
+
+# Prisma
+backend/prisma/migrations/
+backend/prisma/*.db
+backend/prisma/*.db-journal
+
+# Vite
+frontend/.vite/
+
+# Docker
+docker/postgres/data/
+.dockerignore
