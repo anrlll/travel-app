@@ -4,6 +4,7 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import { config } from './config/env.js';
+import { authRoutes } from './routes/auth.routes.js';
 
 const fastify = Fastify({
   logger: {
@@ -59,8 +60,10 @@ async function registerRoutes() {
     return { status: 'ok', timestamp: new Date().toISOString() };
   });
 
-  // API v1 ルート（今後実装）
-  // await fastify.register(authRoutes, { prefix: '/api/v1/auth' });
+  // API v1 認証ルート
+  await fastify.register(authRoutes, { prefix: '/api/v1/auth' });
+
+  // API v1 その他のルート（今後実装）
   // await fastify.register(tripPlanRoutes, { prefix: '/api/v1/trip-plans' });
 }
 
