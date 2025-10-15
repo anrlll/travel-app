@@ -4,6 +4,11 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Home from './pages/Home';
+import Account from './pages/Account';
+import Trips from './pages/Trips';
+import CreateTrip from './pages/CreateTrip';
+import EditTrip from './pages/EditTrip';
+import TripDetail from './pages/TripDetail';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // QueryClientのインスタンス作成
@@ -30,13 +35,53 @@ function App() {
             path="/"
             element={
               <ProtectedRoute>
-                <Home />
+                <Navigate to="/trips" replace />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/account"
+            element={
+              <ProtectedRoute>
+                <Account />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/trips"
+            element={
+              <ProtectedRoute>
+                <Trips />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/trips/new"
+            element={
+              <ProtectedRoute>
+                <CreateTrip />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/trips/:id/edit"
+            element={
+              <ProtectedRoute>
+                <EditTrip />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/trips/:id"
+            element={
+              <ProtectedRoute>
+                <TripDetail />
               </ProtectedRoute>
             }
           />
 
-          {/* 未定義のルートはホームページへリダイレクト */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* 未定義のルートは旅行プラン一覧へリダイレクト */}
+          <Route path="*" element={<Navigate to="/trips" replace />} />
         </Routes>
       </BrowserRouter>
       <ReactQueryDevtools initialIsOpen={false} />

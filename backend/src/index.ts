@@ -5,6 +5,7 @@ import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import { config } from './config/env.js';
 import { authRoutes } from './routes/auth.routes.js';
+import { tripRoutes } from './routes/trip.routes.js';
 
 const fastify = Fastify({
   logger: {
@@ -63,8 +64,8 @@ async function registerRoutes() {
   // API v1 認証ルート
   await fastify.register(authRoutes, { prefix: '/api/v1/auth' });
 
-  // API v1 その他のルート（今後実装）
-  // await fastify.register(tripPlanRoutes, { prefix: '/api/v1/trip-plans' });
+  // API v1 旅行プランルート
+  await fastify.register(tripRoutes, { prefix: '/api/v1/trips' });
 }
 
 // サーバー起動

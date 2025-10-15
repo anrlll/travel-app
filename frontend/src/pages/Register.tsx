@@ -61,7 +61,7 @@ export default function Register() {
         displayName: formData.displayName || undefined,
         locale: 'ja',
       });
-      navigate('/'); // 登録成功後、ホームページへ遷移
+      navigate('/trips'); // 登録成功後、旅行プラン一覧ページへ遷移
     } catch (err: any) {
       const errorMessage =
         err.response?.data?.message || '登録に失敗しました。入力内容を確認してください。';

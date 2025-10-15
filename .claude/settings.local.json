@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "SlashCommand(/serena \"TravelAppプロジェクトの構造を分析して推奨事項を提示\" -q)",
-      "SlashCommand(/serena:*)"
+      "SlashCommand(/serena:*)",
+      "Bash(npm run dev)",
+      "Bash(taskkill:*)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []

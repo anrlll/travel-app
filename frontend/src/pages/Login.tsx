@@ -22,7 +22,7 @@ export default function Login() {
 
     try {
       await login({ email, password });
-      navigate('/'); // ログイン成功後、ホームページへ遷移
+      navigate('/trips'); // ログイン成功後、旅行プラン一覧ページへ遷移
     } catch (err: any) {
       const errorMessage =
         err.response?.data?.message ||
