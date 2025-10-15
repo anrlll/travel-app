@@ -12,6 +12,12 @@ export interface TripMember {
   userId: string | null;
   guestName: string | null;
   role: 'owner' | 'editor' | 'viewer' | 'member';
+  user?: {
+    id: string;
+    username: string;
+    displayName: string | null;
+    email: string;
+  };
 }
 
 // 旅行プランの型定義

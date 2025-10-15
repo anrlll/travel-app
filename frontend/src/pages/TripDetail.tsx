@@ -258,7 +258,7 @@ function TripDetail() {
               {currentTrip.members.map((member) => (
                 <div key={member.id} className="flex items-center justify-between">
                   <span className="text-gray-700">
-                    {member.guestName || member.userId || 'ユーザー'}
+                    {member.user?.displayName || member.user?.username || member.guestName || 'ユーザー'}
                   </span>
                   <span className="text-sm text-gray-500">
                     {member.role === 'owner' ? 'オーナー' : ''}
