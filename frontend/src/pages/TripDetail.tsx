@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useTripStore } from '../stores/tripStore';
+import { useActivityStore } from '../stores/activityStore';
 import { useAuthStore } from '../stores/authStore';
 import Header from '../components/Header';
+import ActivityCard from '../components/ActivityCard';
+import ActivityForm from '../components/ActivityForm';
+import type { Activity, CreateActivityData } from '../types/activity';
 
 // ステータスバッジのスタイル
 const statusStyles: Record<string, string> = {
@@ -24,15 +28,30 @@ const statusLabels: Record<string, string> = {
   cancelled: 'キャンセル',
 };
 
+type TabType = 'overview' | 'itinerary';
+
 function TripDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { currentTrip, isLoading, error, fetchTripById, deleteTrip, clearCurrentTrip } =
     useTripStore();
+  const {
+    activities,
+    isLoading: activitiesLoading,
+    fetchActivities,
+    createActivity,
+    updateActivity,
+    deleteActivity,
+    toggleActivityCompletion,
+  } = useActivityStore();
   const { user } = useAuthStore();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [showActivityForm, setShowActivityForm] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [selectedDayNumber, setSelectedDayNumber] = useState<number>(1);
 
   // 初回マウント時に旅行プラン詳細を取得
   useEffect(() => {
@@ -45,6 +64,22 @@ function TripDetail() {
       clearCurrentTrip();
     };
   }, [id, fetchTripById, clearCurrentTrip]);
+
+  // 旅行プランが取得されたらアクティビティも取得
+  useEffect(() => {
+    if (id && currentTrip) {
+      fetchActivities(id);
+    }
+  }, [id, currentTrip, fetchActivities]);
+
+  // オーナーまたはエディターかどうかを判定
+  const canEdit =
+    currentTrip &&
+    user &&
+    currentTrip.members?.some(
+      (member) =>
+        member.userId === user.id && (member.role === 'owner' || member.role === 'editor')
+    );
 
   // オーナーかどうかを判定
   const isOwner =
@@ -85,6 +120,58 @@ function TripDetail() {
     }
   };
 
+  // アクティビティ追加
+  const handleAddActivity = (dayNumber: number) => {
+    setSelectedDayNumber(dayNumber);
+    setEditingActivity(null);
+    setShowActivityForm(true);
+  };
+
+  // アクティビティ編集
+  const handleEditActivity = (activity: Activity) => {
+    setSelectedDayNumber(activity.dayNumber);
+    setEditingActivity(activity);
+    setShowActivityForm(true);
+  };
+
+  // アクティビティ削除
+  const handleDeleteActivity = async (activityId: string) => {
+    try {
+      await deleteActivity(activityId);
+    } catch (error) {
+      console.error('アクティビティ削除エラー:', error);
+    }
+  };
+
+  // アクティビティ完了トグル
+  const handleToggleComplete = async (activityId: string) => {
+    try {
+      await toggleActivityCompletion(activityId);
+    } catch (error) {
+      console.error('完了状態変更エラー:', error);
+    }
+  };
+
+  // アクティビティフォーム送信
+  const handleActivitySubmit = async (data: CreateActivityData) => {
+    if (!id) return;
+
+    try {
+      if (editingActivity) {
+        // 更新
+        await updateActivity(editingActivity.id, data);
+      } else {
+        // 新規作成
+        await createActivity(id, data);
+      }
+      setShowActivityForm(false);
+      setEditingActivity(null);
+    } catch (error) {
+      // エラーはストアで処理済み
+      throw error;
+    }
+  };
+
   // ローディング表示
   if (isLoading) {
     return (
@@ -98,6 +185,7 @@ function TripDetail() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
+        <Header />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
             {error}
@@ -117,6 +205,7 @@ function TripDetail() {
   if (!currentTrip) {
     return (
       <div className="min-h-screen bg-gray-50">
+        <Header />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
             <p className="text-gray-500 text-lg mb-4">旅行プランが見つかりません</p>
@@ -135,10 +224,24 @@ function TripDetail() {
   const startDate = currentTrip.startDate ? new Date(currentTrip.startDate) : null;
   const endDate = currentTrip.endDate ? new Date(currentTrip.endDate) : null;
 
+  // 日程の日数を計算
+  const numberOfDays =
+    startDate && endDate ? differenceInDays(endDate, startDate) + 1 : 0;
+  const days = numberOfDays > 0 ? Array.from({ length: numberOfDays }, (_, i) => i + 1) : [];
+
+  // 日ごとにアクティビティをグループ化
+  const activitiesByDay = activities.reduce((acc, activity) => {
+    if (!acc[activity.dayNumber]) {
+      acc[activity.dayNumber] = [];
+    }
+    acc[activity.dayNumber].push(activity);
+    return acc;
+  }, {} as Record<number, Activity[]>);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* 戻るボタン */}
         <button
           onClick={() => navigate('/trips')}
@@ -197,100 +300,229 @@ function TripDetail() {
                     endDate,
                     'M月d日（E）',
                     { locale: ja }
-                  )}`
+                  )} (${numberOfDays}日間)`
                 : '日程未定'}
             </span>
           </div>
-
-          {/* 説明 */}
-          {currentTrip.description && (
-            <p className="text-gray-700 mb-3">{currentTrip.description}</p>
-          )}
-
-          {/* ステータス変更（オーナーのみ） */}
-          {isOwner && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <label htmlFor="status-select" className="block text-sm font-medium text-gray-700 mb-2">
-                ステータスを変更
-              </label>
-              <select
-                id="status-select"
-                value={currentTrip.status}
-                onChange={(e) => handleStatusChange(e.target.value)}
-                disabled={isUpdatingStatus}
-                className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-              >
-                {Object.entries(statusLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              {isUpdatingStatus && (
-                <p className="text-sm text-gray-500 mt-2">更新中...</p>
-              )}
-            </div>
-          )}
         </div>
 
-        {/* 目的地 */}
-        {currentTrip.destinations && currentTrip.destinations.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">目的地</h2>
-            <div className="flex flex-wrap gap-2">
-              {currentTrip.destinations.map((destination, index) => (
-                <div
-                  key={index}
-                  className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg font-medium"
-                >
-                  {destination.name}
-                </div>
-              ))}
-            </div>
+        {/* タブナビゲーション */}
+        <div className="bg-white rounded-lg shadow-md mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="flex -mb-px">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'overview'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                概要
+              </button>
+              <button
+                onClick={() => setActiveTab('itinerary')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'itinerary'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                日程 {activities.length > 0 && `(${activities.length}件)`}
+              </button>
+            </nav>
           </div>
-        )}
 
-        {/* メンバー */}
-        {currentTrip.members && currentTrip.members.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">メンバー</h2>
-            <div className="space-y-2">
-              {currentTrip.members.map((member) => (
-                <div key={member.id} className="flex items-center justify-between">
-                  <span className="text-gray-700">
-                    {member.user?.displayName || member.user?.username || member.guestName || 'ユーザー'}
-                  </span>
-                  <span className="text-sm text-gray-500">
-                    {member.role === 'owner' ? 'オーナー' : ''}
-                  </span>
-                </div>
-              ))}
-            </div>
+          {/* タブコンテンツ */}
+          <div className="p-6">
+            {/* 概要タブ */}
+            {activeTab === 'overview' && (
+              <div className="space-y-6">
+                {/* 説明 */}
+                {currentTrip.description && (
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 mb-2">説明</h2>
+                    <p className="text-gray-700">{currentTrip.description}</p>
+                  </div>
+                )}
+
+                {/* 目的地 */}
+                {currentTrip.destinations && currentTrip.destinations.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 mb-2">目的地</h2>
+                    <div className="flex flex-wrap gap-2">
+                      {currentTrip.destinations.map((destination, index) => (
+                        <div
+                          key={index}
+                          className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg font-medium"
+                        >
+                          {destination.name}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* メンバー */}
+                {currentTrip.members && currentTrip.members.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 mb-2">メンバー</h2>
+                    <div className="space-y-2">
+                      {currentTrip.members.map((member) => (
+                        <div key={member.id} className="flex items-center justify-between">
+                          <span className="text-gray-700">
+                            {member.user?.displayName || member.user?.username || member.guestName || 'ユーザー'}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            {member.role === 'owner' ? 'オーナー' : member.role === 'editor' ? 'エディター' : 'ビューワー'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* タグ */}
+                {currentTrip.tags && currentTrip.tags.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 mb-2">タグ</h2>
+                    <div className="flex flex-wrap gap-2">
+                      {currentTrip.tags.map((tag, index) => (
+                        <span
+                          key={index}
+                          className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* メモ */}
+                {currentTrip.notes && (
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 mb-2">メモ</h2>
+                    <p className="text-gray-700 whitespace-pre-wrap">{currentTrip.notes}</p>
+                  </div>
+                )}
+
+                {/* ステータス変更（オーナーのみ） */}
+                {isOwner && (
+                  <div className="pt-4 border-t border-gray-200">
+                    <label htmlFor="status-select" className="block text-sm font-medium text-gray-700 mb-2">
+                      ステータスを変更
+                    </label>
+                    <select
+                      id="status-select"
+                      value={currentTrip.status}
+                      onChange={(e) => handleStatusChange(e.target.value)}
+                      disabled={isUpdatingStatus}
+                      className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                    >
+                      {Object.entries(statusLabels).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    {isUpdatingStatus && (
+                      <p className="text-sm text-gray-500 mt-2">更新中...</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 日程タブ */}
+            {activeTab === 'itinerary' && (
+              <div>
+                {days.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500 mb-4">日程が設定されていません</p>
+                    {isOwner && (
+                      <button
+                        onClick={() => navigate(`/trips/${id}/edit`)}
+                        className="text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        旅行プランを編集して日程を設定する
+                      </button>
+                    )}
+                  </div>
+                ) : activitiesLoading ? (
+                  <div className="flex justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    {days.map((dayNumber) => {
+                      const dayActivities = activitiesByDay[dayNumber] || [];
+                      const dayDate = startDate
+                        ? new Date(startDate.getTime() + (dayNumber - 1) * 24 * 60 * 60 * 1000)
+                        : null;
+
+                      return (
+                        <div key={dayNumber} className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold text-gray-900">
+                              Day {dayNumber}
+                              {dayDate && ` - ${format(dayDate, 'M月d日（E）', { locale: ja })}`}
+                            </h3>
+                            {canEdit && (
+                              <button
+                                onClick={() => handleAddActivity(dayNumber)}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm"
+                              >
+                                + アクティビティを追加
+                              </button>
+                            )}
+                          </div>
+
+                          {dayActivities.length === 0 ? (
+                            <p className="text-gray-500 text-center py-8">
+                              アクティビティがありません
+                            </p>
+                          ) : (
+                            <div className="space-y-3">
+                              {dayActivities.map((activity) => (
+                                <ActivityCard
+                                  key={activity.id}
+                                  activity={activity}
+                                  canEdit={!!canEdit}
+                                  onEdit={handleEditActivity}
+                                  onDelete={handleDeleteActivity}
+                                  onToggleComplete={handleToggleComplete}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
-        {/* タグ */}
-        {currentTrip.tags && currentTrip.tags.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">タグ</h2>
-            <div className="flex flex-wrap gap-2">
-              {currentTrip.tags.map((tag, index) => (
-                <span
-                  key={index}
-                  className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm"
-                >
-                  #{tag}
-                </span>
-              ))}
+        {/* アクティビティフォームモーダル */}
+        {showActivityForm && id && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4 overflow-y-auto">
+            <div className="bg-white rounded-lg max-w-2xl w-full my-8">
+              <div className="p-6">
+                <ActivityForm
+                  tripId={id}
+                  dayNumber={selectedDayNumber}
+                  activity={editingActivity}
+                  onSubmit={handleActivitySubmit}
+                  onCancel={() => {
+                    setShowActivityForm(false);
+                    setEditingActivity(null);
+                  }}
+                />
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* メモ */}
-        {currentTrip.notes && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">メモ</h2>
-            <p className="text-gray-700 whitespace-pre-wrap">{currentTrip.notes}</p>
           </div>
         )}
 

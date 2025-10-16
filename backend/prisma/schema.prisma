@@ -124,6 +124,7 @@ model TripPlanActivity {
   id                String           @id @default(cuid())
   tripPlanId        String           @map("trip_plan_id")
   dayNumber         Int              @map("day_number")
+  order             Int              @default(0)
   startTime         DateTime?        @map("start_time")
   endTime           DateTime?        @map("end_time")
   title             String
@@ -134,6 +135,7 @@ model TripPlanActivity {
   estimatedCost     Decimal?         @map("estimated_cost") @db.Decimal(10, 2)
   actualCost        Decimal?         @map("actual_cost") @db.Decimal(10, 2)
   notes             String?
+  isCompleted       Boolean          @default(false) @map("is_completed")
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
 
