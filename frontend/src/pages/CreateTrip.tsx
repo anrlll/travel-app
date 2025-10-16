@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTripStore } from '../stores/tripStore';
 import Header from '../components/Header';
+import Textarea from '../components/Textarea';
 import type { CreateTripData } from '../types/trip';
 
 // フォームバリデーションスキーマ
@@ -96,7 +97,7 @@ function CreateTrip() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <Header />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* ヘッダー */}
@@ -139,19 +140,14 @@ function CreateTrip() {
 
           {/* 説明 */}
           <div className="mb-6">
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-              説明
-            </label>
-            <textarea
+            <Textarea
               {...register('description')}
               id="description"
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              rows={4}
+              label="説明"
               placeholder="旅行の概要や目的を記入してください"
+              error={errors.description?.message}
             />
-            {errors.description && (
-              <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>
-            )}
           </div>
 
           {/* 日程 */}

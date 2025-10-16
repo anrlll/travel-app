@@ -146,7 +146,7 @@ export default function Account() {
             {/* ログアウトボタン */}
             <button
               onClick={handleLogout}
-              className="w-full sm:w-auto px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+              className="w-full sm:w-auto px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"
             >
               ログアウト
             </button>

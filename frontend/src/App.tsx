@@ -3,7 +3,6 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Home from './pages/Home';
 import Account from './pages/Account';
 import Trips from './pages/Trips';
 import CreateTrip from './pages/CreateTrip';
