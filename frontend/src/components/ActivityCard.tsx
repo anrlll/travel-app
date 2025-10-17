@@ -1,21 +1,33 @@
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import type { Activity } from '../types/activity';
+import type { Activity, ActivityParticipant, ActivityTransport } from '../types/activity';
 import {
   activityCategoryLabels,
   activityCategoryColors,
   activityCategoryIcons,
+  transportTypeLabels,
+  transportTypeIcons,
 } from '../types/activity';
 
 interface ActivityCardProps {
   activity: Activity;
   canEdit: boolean;
+  participants?: ActivityParticipant[];
+  transport?: ActivityTransport | null;
   onEdit: (activity: Activity) => void;
   onDelete: (activityId: string) => void;
   onToggleComplete: (activityId: string) => void;
 }
 
-function ActivityCard({ activity, canEdit, onEdit, onDelete, onToggleComplete }: ActivityCardProps) {
+function ActivityCard({
+  activity,
+  canEdit,
+  participants,
+  transport,
+  onEdit,
+  onDelete,
+  onToggleComplete,
+}: ActivityCardProps) {
   // 時間フォーマット
   const formatTime = (dateString?: string) => {
     if (!dateString) return null;
@@ -123,6 +135,52 @@ function ActivityCard({ activity, canEdit, onEdit, onDelete, onToggleComplete }:
           {activity.actualCost !== undefined && activity.actualCost !== null && (
             <span className="ml-2">（実費: ¥{activity.actualCost.toLocaleString()}）</span>
           )}
+        </div>
+      )}
+
+      {/* 参加者 */}
+      {participants && participants.length > 0 && (
+        <div className="flex items-start text-gray-600 text-sm mb-3">
+          <svg className="w-4 h-4 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+            />
+          </svg>
+          <div className="flex-1">
+            <span className="font-medium">参加者: </span>
+            <span>
+              {participants
+                .map((p) => p.member.user?.displayName || p.member.guestName || '不明')
+                .join(', ')}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* 移動手段 */}
+      {transport && (
+        <div className="flex items-start text-gray-600 text-sm mb-3">
+          <svg className="w-4 h-4 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 10V3L4 14h7v7l9-11h-7z"
+            />
+          </svg>
+          <div className="flex-1">
+            <span className="font-medium">
+              {transportTypeIcons[transport.transportType]} {transportTypeLabels[transport.transportType]}
+            </span>
+            {transport.durationMinutes && (
+              <span className="ml-2">（{transport.durationMinutes}分）</span>
+            )}
+            {transport.distanceKm && <span className="ml-2">（{transport.distanceKm}km）</span>}
+            {transport.cost && <span className="ml-2">¥{transport.cost.toLocaleString()}</span>}
+          </div>
         </div>
       )}
 

@@ -380,4 +380,150 @@ export async function activityRoutes(fastify: FastifyInstance) {
       }
     }
   );
+
+  // ========================================
+  // 参加者管理エンドポイント
+  // ========================================
+
+  // POST /api/v1/activities/:id/participants/:memberId - 参加者追加
+  fastify.post<{ Params: { id: string; memberId: string } }>(
+    '/activities/:id/participants/:memberId',
+    { preHandler: authMiddleware },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.status(401).send({ success: false, error: 'Unauthorized', message: '認証が必要です' });
+        }
+        await activityService.addParticipant(request.params.id, request.params.memberId, request.user.userId);
+        return reply.status(201).send({ success: true, message: '参加者を追加しました' });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('権限がありません') || error.message.includes('所属していません')) {
+            return reply.status(403).send({ success: false, error: 'ForbiddenError', message: error.message });
+          }
+          return reply.status(400).send({ success: false, error: 'AddParticipantError', message: error.message });
+        }
+        return reply.status(500).send({ success: false, error: 'InternalServerError', message: '参加者追加中にエラーが発生しました' });
+      }
+    }
+  );
+
+  // DELETE /api/v1/activities/:id/participants/:memberId - 参加者削除
+  fastify.delete<{ Params: { id: string; memberId: string } }>(
+    '/activities/:id/participants/:memberId',
+    { preHandler: authMiddleware },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.status(401).send({ success: false, error: 'Unauthorized', message: '認証が必要です' });
+        }
+        await activityService.removeParticipant(request.params.id, request.params.memberId, request.user.userId);
+        return reply.status(200).send({ success: true, message: '参加者を削除しました' });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('権限がありません')) {
+            return reply.status(403).send({ success: false, error: 'ForbiddenError', message: error.message });
+          }
+          return reply.status(400).send({ success: false, error: 'RemoveParticipantError', message: error.message });
+        }
+        return reply.status(500).send({ success: false, error: 'InternalServerError', message: '参加者削除中にエラーが発生しました' });
+      }
+    }
+  );
+
+  // GET /api/v1/activities/:id/participants - 参加者一覧取得
+  fastify.get<{ Params: ActivityIdParam }>(
+    '/activities/:id/participants',
+    { preHandler: authMiddleware },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.status(401).send({ success: false, error: 'Unauthorized', message: '認証が必要です' });
+        }
+        const participants = await activityService.getParticipants(request.params.id, request.user.userId);
+        return reply.status(200).send({ success: true, data: participants });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('権限がありません')) {
+            return reply.status(403).send({ success: false, error: 'ForbiddenError', message: error.message });
+          }
+          return reply.status(400).send({ success: false, error: 'GetParticipantsError', message: error.message });
+        }
+        return reply.status(500).send({ success: false, error: 'InternalServerError', message: '参加者一覧取得中にエラーが発生しました' });
+      }
+    }
+  );
+
+  // ========================================
+  // 移動手段管理エンドポイント
+  // ========================================
+
+  // PUT /api/v1/activities/:id/transport - 移動手段設定/更新
+  fastify.put<{ Params: ActivityIdParam; Body: activityService.TransportData }>(
+    '/activities/:id/transport',
+    { preHandler: authMiddleware },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.status(401).send({ success: false, error: 'Unauthorized', message: '認証が必要です' });
+        }
+        const transport = await activityService.setTransport(request.params.id, request.user.userId, request.body);
+        return reply.status(200).send({ success: true, data: transport });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('権限がありません')) {
+            return reply.status(403).send({ success: false, error: 'ForbiddenError', message: error.message });
+          }
+          return reply.status(400).send({ success: false, error: 'SetTransportError', message: error.message });
+        }
+        return reply.status(500).send({ success: false, error: 'InternalServerError', message: '移動手段設定中にエラーが発生しました' });
+      }
+    }
+  );
+
+  // DELETE /api/v1/activities/:id/transport - 移動手段削除
+  fastify.delete<{ Params: ActivityIdParam }>(
+    '/activities/:id/transport',
+    { preHandler: authMiddleware },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.status(401).send({ success: false, error: 'Unauthorized', message: '認証が必要です' });
+        }
+        await activityService.deleteTransport(request.params.id, request.user.userId);
+        return reply.status(200).send({ success: true, message: '移動手段を削除しました' });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('権限がありません')) {
+            return reply.status(403).send({ success: false, error: 'ForbiddenError', message: error.message });
+          }
+          return reply.status(400).send({ success: false, error: 'DeleteTransportError', message: error.message });
+        }
+        return reply.status(500).send({ success: false, error: 'InternalServerError', message: '移動手段削除中にエラーが発生しました' });
+      }
+    }
+  );
+
+  // GET /api/v1/activities/:id/transport - 移動手段取得
+  fastify.get<{ Params: ActivityIdParam }>(
+    '/activities/:id/transport',
+    { preHandler: authMiddleware },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.status(401).send({ success: false, error: 'Unauthorized', message: '認証が必要です' });
+        }
+        const transport = await activityService.getTransport(request.params.id, request.user.userId);
+        return reply.status(200).send({ success: true, data: transport });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('権限がありません')) {
+            return reply.status(403).send({ success: false, error: 'ForbiddenError', message: error.message });
+          }
+          return reply.status(400).send({ success: false, error: 'GetTransportError', message: error.message });
+        }
+        return reply.status(500).send({ success: false, error: 'InternalServerError', message: '移動手段取得中にエラーが発生しました' });
+      }
+    }
+  );
 }

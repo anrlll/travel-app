@@ -7,6 +7,7 @@ import { config } from './config/env.js';
 import { authRoutes } from './routes/auth.routes.js';
 import { tripRoutes } from './routes/trip.routes.js';
 import { activityRoutes } from './routes/activity.routes.js';
+import { budgetRoutes } from './routes/budget.routes.js';
 
 const fastify = Fastify({
   logger: {
@@ -70,6 +71,9 @@ async function registerRoutes() {
 
   // API v1 アクティビティルート
   await fastify.register(activityRoutes, { prefix: '/api/v1' });
+
+  // API v1 予算ルート
+  await fastify.register(budgetRoutes, { prefix: '/api/v1' });
 }
 
 // サーバー起動

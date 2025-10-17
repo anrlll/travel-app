@@ -2,8 +2,20 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import type { Activity, CreateActivityData, ActivityCategory } from '../types/activity';
-import { activityCategoryLabels } from '../types/activity';
+import type {
+  Activity,
+  CreateActivityData,
+  ActivityCategory,
+  ActivityParticipant,
+  ActivityTransport,
+  TransportType,
+  TransportData,
+} from '../types/activity';
+import {
+  activityCategoryLabels,
+  transportTypeLabels,
+  transportTypeIcons,
+} from '../types/activity';
 
 // フォームバリデーションスキーマ
 const activityFormSchema = z.object({
@@ -21,17 +33,56 @@ const activityFormSchema = z.object({
 
 type ActivityFormData = z.infer<typeof activityFormSchema>;
 
+interface TripMember {
+  id: string;
+  userId?: string;
+  guestName?: string;
+  role: string;
+  user?: {
+    id: string;
+    username: string;
+    displayName: string;
+  };
+}
+
 interface ActivityFormProps {
   tripId: string;
   dayNumber: number;
   activity?: Activity | null;
+  tripMembers?: TripMember[];
+  participants?: ActivityParticipant[];
+  transport?: ActivityTransport | null;
   onSubmit: (data: CreateActivityData) => Promise<void>;
   onCancel: () => void;
+  onAddParticipant?: (memberId: string) => Promise<void>;
+  onRemoveParticipant?: (memberId: string) => Promise<void>;
+  onSetTransport?: (data: TransportData) => Promise<void>;
+  onDeleteTransport?: () => Promise<void>;
 }
 
-function ActivityForm({ tripId, dayNumber, activity, onSubmit, onCancel }: ActivityFormProps) {
+function ActivityForm({
+  tripId,
+  dayNumber,
+  activity,
+  tripMembers = [],
+  participants = [],
+  transport,
+  onSubmit,
+  onCancel,
+  onAddParticipant,
+  onRemoveParticipant,
+  onSetTransport,
+  onDeleteTransport,
+}: ActivityFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showTransportForm, setShowTransportForm] = useState(false);
+  const [transportFormData, setTransportFormData] = useState<TransportData>({
+    transportType: 'walk',
+    durationMinutes: undefined,
+    distanceKm: undefined,
+    cost: undefined,
+  });
 
   const {
     register,
@@ -85,6 +136,18 @@ function ActivityForm({ tripId, dayNumber, activity, onSubmit, onCancel }: Activ
     }
   }, [activity, reset]);
 
+  // 移動手段データをフォームにセット
+  useEffect(() => {
+    if (transport) {
+      setTransportFormData({
+        transportType: transport.transportType,
+        durationMinutes: transport.durationMinutes,
+        distanceKm: transport.distanceKm,
+        cost: transport.cost,
+      });
+    }
+  }, [transport]);
+
   // フォーム送信処理
   const handleFormSubmit = async (data: ActivityFormData) => {
     try {
@@ -113,6 +176,55 @@ function ActivityForm({ tripId, dayNumber, activity, onSubmit, onCancel }: Activ
       setIsSubmitting(false);
     }
   };
+
+  // 参加者追加
+  const handleAddParticipant = async (memberId: string) => {
+    if (!onAddParticipant) return;
+    try {
+      await onAddParticipant(memberId);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : '参加者の追加に失敗しました');
+    }
+  };
+
+  // 参加者削除
+  const handleRemoveParticipant = async (memberId: string) => {
+    if (!onRemoveParticipant) return;
+    try {
+      await onRemoveParticipant(memberId);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : '参加者の削除に失敗しました');
+    }
+  };
+
+  // 移動手段保存
+  const handleSaveTransport = async () => {
+    if (!onSetTransport) return;
+    try {
+      await onSetTransport(transportFormData);
+      setShowTransportForm(false);
+      setSubmitError(null);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : '移動手段の保存に失敗しました');
+    }
+  };
+
+  // 移動手段削除
+  const handleDeleteTransport = async () => {
+    if (!onDeleteTransport) return;
+    if (!window.confirm('移動手段を削除しますか?')) return;
+    try {
+      await onDeleteTransport();
+      setSubmitError(null);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : '移動手段の削除に失敗しました');
+    }
+  };
+
+  // 参加していないメンバーリスト
+  const availableMembers = tripMembers.filter(
+    (member) => !participants.some((p) => p.tripPlanMemberId === member.id)
+  );
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -257,6 +369,220 @@ function ActivityForm({ tripId, dayNumber, activity, onSubmit, onCancel }: Activ
           />
           {errors.notes && <p className="text-red-500 text-sm mt-1">{errors.notes.message}</p>}
         </div>
+
+        {/* 参加者・移動手段管理（編集モードのみ） */}
+        {activity && (
+          <div className="mb-6 border-t pt-6">
+            {/* 参加者管理 */}
+            <div className="mb-6">
+              <h4 className="text-lg font-semibold text-gray-900 mb-3">参加者</h4>
+
+              {/* 現在の参加者リスト */}
+              {participants.length > 0 && (
+                <div className="mb-3">
+                  <div className="flex flex-wrap gap-2">
+                    {participants.map((participant) => (
+                      <div
+                        key={participant.id}
+                        className="flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full"
+                      >
+                        <span>
+                          {participant.member.user?.displayName ||
+                            participant.member.guestName ||
+                            '不明'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveParticipant(participant.tripPlanMemberId)}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 参加者追加 */}
+              {availableMembers.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    参加者を追加
+                  </label>
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        handleAddParticipant(e.target.value);
+                        e.target.value = '';
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">メンバーを選択...</option>
+                    {availableMembers.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.user?.displayName || member.guestName || '不明'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {participants.length === 0 && availableMembers.length === 0 && (
+                <p className="text-gray-500 text-sm">参加可能なメンバーがいません</p>
+              )}
+            </div>
+
+            {/* 移動手段管理 */}
+            <div>
+              <h4 className="text-lg font-semibold text-gray-900 mb-3">移動手段</h4>
+
+              {/* 現在の移動手段 */}
+              {transport && !showTransportForm && (
+                <div className="bg-gray-50 p-4 rounded-md mb-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium">
+                        {transportTypeIcons[transport.transportType]}{' '}
+                        {transportTypeLabels[transport.transportType]}
+                      </p>
+                      {transport.durationMinutes && (
+                        <p className="text-sm text-gray-600">所要時間: {transport.durationMinutes}分</p>
+                      )}
+                      {transport.distanceKm && (
+                        <p className="text-sm text-gray-600">距離: {transport.distanceKm}km</p>
+                      )}
+                      {transport.cost && (
+                        <p className="text-sm text-gray-600">費用: ¥{transport.cost.toLocaleString()}</p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowTransportForm(true)}
+                        className="text-sm text-blue-600 hover:text-blue-800"
+                      >
+                        編集
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteTransport}
+                        className="text-sm text-red-600 hover:text-red-800"
+                      >
+                        削除
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 移動手段フォーム */}
+              {(!transport || showTransportForm) && (
+                <div className="bg-gray-50 p-4 rounded-md space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      移動手段タイプ
+                    </label>
+                    <select
+                      value={transportFormData.transportType}
+                      onChange={(e) =>
+                        setTransportFormData({
+                          ...transportFormData,
+                          transportType: e.target.value as TransportType,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {Object.entries(transportTypeLabels).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {transportTypeIcons[value as TransportType]} {label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      所要時間（分）
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={transportFormData.durationMinutes || ''}
+                      onChange={(e) =>
+                        setTransportFormData({
+                          ...transportFormData,
+                          durationMinutes: e.target.value ? parseInt(e.target.value) : undefined,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="例: 30"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      距離（km）
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={transportFormData.distanceKm || ''}
+                      onChange={(e) =>
+                        setTransportFormData({
+                          ...transportFormData,
+                          distanceKm: e.target.value ? parseFloat(e.target.value) : undefined,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="例: 5.2"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      費用（円）
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={transportFormData.cost || ''}
+                      onChange={(e) =>
+                        setTransportFormData({
+                          ...transportFormData,
+                          cost: e.target.value ? parseInt(e.target.value) : undefined,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="例: 500"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveTransport}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm"
+                    >
+                      保存
+                    </button>
+                    {showTransportForm && (
+                      <button
+                        type="button"
+                        onClick={() => setShowTransportForm(false)}
+                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors text-sm"
+                      >
+                        キャンセル
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* 送信ボタン */}
         <div className="flex justify-end gap-4">

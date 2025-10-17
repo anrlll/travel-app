@@ -105,7 +105,7 @@ export const activityCategoryLabels: Record<ActivityCategory, string> = {
 };
 
 /**
- * カテゴリアイコンマッピング（Tailwind CSS対応）
+ * カテゴリアイコンマッピング(Tailwind CSS対応)
  */
 export const activityCategoryIcons: Record<ActivityCategory, string> = {
   sightseeing: '🏛️',
@@ -116,7 +116,7 @@ export const activityCategoryIcons: Record<ActivityCategory, string> = {
 };
 
 /**
- * カテゴリカラーマッピング（Tailwind CSS対応）
+ * カテゴリカラーマッピング(Tailwind CSS対応)
  */
 export const activityCategoryColors: Record<ActivityCategory, string> = {
   sightseeing: 'bg-blue-100 text-blue-800',
@@ -124,4 +124,80 @@ export const activityCategoryColors: Record<ActivityCategory, string> = {
   accommodation: 'bg-purple-100 text-purple-800',
   transport: 'bg-green-100 text-green-800',
   other: 'bg-gray-100 text-gray-800',
+};
+
+/**
+ * アクティビティ参加者型
+ */
+export interface ActivityParticipant {
+  id: string;
+  tripPlanActivityId: string;
+  tripPlanMemberId: string;
+  member: {
+    id: string;
+    userId?: string;
+    guestName?: string;
+    role: string;
+    user?: {
+      id: string;
+      username: string;
+      displayName: string;
+    };
+  };
+}
+
+/**
+ * 移動手段タイプ
+ */
+export type TransportType = 'walk' | 'car' | 'train' | 'bus' | 'plane' | 'other';
+
+/**
+ * アクティビティ移動手段型
+ */
+export interface ActivityTransport {
+  id: string;
+  tripPlanActivityId: string;
+  transportType: TransportType;
+  durationMinutes?: number;
+  distanceKm?: number;
+  cost?: number;
+  routeData?: any;
+  isAutoCalculated: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * 移動手段作成・更新データ
+ */
+export interface TransportData {
+  transportType: TransportType;
+  durationMinutes?: number;
+  distanceKm?: number;
+  cost?: number;
+  routeData?: any;
+}
+
+/**
+ * 移動手段タイプラベルマッピング
+ */
+export const transportTypeLabels: Record<TransportType, string> = {
+  walk: '徒歩',
+  car: '車',
+  train: '電車',
+  bus: 'バス',
+  plane: '飛行機',
+  other: 'その他',
+};
+
+/**
+ * 移動手段タイプアイコンマッピング
+ */
+export const transportTypeIcons: Record<TransportType, string> = {
+  walk: '🚶',
+  car: '🚗',
+  train: '🚃',
+  bus: '🚌',
+  plane: '✈️',
+  other: '🚀',
 };

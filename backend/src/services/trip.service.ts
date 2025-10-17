@@ -1,6 +1,33 @@
 import { prisma } from '../config/prisma.js';
 import type { CreateTripInput, UpdateTripInput, GetTripsQuery } from '../models/trip.model.js';
 
+/**
+ * 旅行プランへのアクセス権限とメンバー情報を確認
+ * @param tripId - 旅行プランID
+ * @param userId - ユーザーID
+ * @returns 旅行プランとメンバー情報
+ * @throws 旅行プランが見つからない、またはメンバーでない場合エラー
+ */
+export async function getTripPlanWithMemberCheck(tripId: string, userId: string) {
+  const trip = await prisma.tripPlan.findUnique({
+    where: { id: tripId },
+    include: {
+      members: true,
+    },
+  });
+
+  if (!trip) {
+    throw new Error('旅行プランが見つかりません');
+  }
+
+  const member = trip.members.find((m) => m.userId === userId);
+  if (!member) {
+    throw new Error('この旅行プランにアクセスする権限がありません');
+  }
+
+  return trip;
+}
+
 // 旅行プランレスポンスの型定義
 export interface TripResponse {
   id: string;

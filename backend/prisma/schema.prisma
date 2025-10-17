@@ -84,6 +84,7 @@ model TripPlan {
   members           TripPlanMember[]
   activities        TripPlanActivity[]
   budgets           Budget[]
+  tripPlanBudgets   TripPlanBudget[] @relation("TripPlanBudgets")
   expenses          Expense[]
   memories          Memory[]
   canvasProposals   CanvasProposal[]
@@ -215,6 +216,25 @@ model Budget {
 
   @@index([tripPlanId])
   @@map("budgets")
+}
+
+// 新しい予算管理モデル（Phase 2.3）
+model TripPlanBudget {
+  id            String   @id @default(cuid())
+  tripPlanId    String   @map("trip_plan_id")
+  category      String   // 'food', 'transport', 'accommodation', 'sightseeing', 'other', 'total'
+  budgetAmount  Decimal  @map("budget_amount") @db.Decimal(10, 2)
+  isPerPerson   Boolean  @default(false) @map("is_per_person")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // リレーション
+  tripPlan      TripPlan @relation("TripPlanBudgets", fields: [tripPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([tripPlanId, category])
+  @@index([tripPlanId])
+  @@map("trip_plan_budgets")
 }
 
 model Expense {

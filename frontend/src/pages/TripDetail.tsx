@@ -8,6 +8,8 @@ import { useAuthStore } from '../stores/authStore';
 import Header from '../components/Header';
 import ActivityCard from '../components/ActivityCard';
 import ActivityForm from '../components/ActivityForm';
+import BudgetSummary from '../components/BudgetSummary';
+import BudgetManager from '../components/BudgetManager';
 import type { Activity, CreateActivityData } from '../types/activity';
 
 // ステータスバッジのスタイル
@@ -28,22 +30,31 @@ const statusLabels: Record<string, string> = {
   cancelled: 'キャンセル',
 };
 
-type TabType = 'overview' | 'itinerary';
+type TabType = 'overview' | 'itinerary' | 'budget';
 
 function TripDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { currentTrip, isLoading, error, fetchTripById, deleteTrip, clearCurrentTrip } =
     useTripStore();
+  const activityStore = useActivityStore();
   const {
     activities,
+    participants,
+    transports,
     isLoading: activitiesLoading,
     fetchActivities,
+    fetchParticipants,
+    fetchTransport,
+    addParticipant,
+    removeParticipant,
+    setTransport,
+    deleteTransport,
     createActivity,
     updateActivity,
     deleteActivity,
     toggleActivityCompletion,
-  } = useActivityStore();
+  } = activityStore;
   const { user } = useAuthStore();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -71,6 +82,21 @@ function TripDetail() {
       fetchActivities(id);
     }
   }, [id, currentTrip, fetchActivities]);
+
+  // アクティビティが取得されたら、各アクティビティの参加者と移動手段も取得
+  useEffect(() => {
+    if (activities.length > 0) {
+      activities.forEach((activity) => {
+        // すでに取得済みでない場合のみ取得
+        if (!participants[activity.id]) {
+          fetchParticipants(activity.id).catch(console.error);
+        }
+        if (transports[activity.id] === undefined) {
+          fetchTransport(activity.id).catch(console.error);
+        }
+      });
+    }
+  }, [activities, participants, transports, fetchParticipants, fetchTransport]);
 
   // オーナーまたはエディターかどうかを判定
   const canEdit =
@@ -330,6 +356,16 @@ function TripDetail() {
               >
                 日程 {activities.length > 0 && `(${activities.length}件)`}
               </button>
+              <button
+                onClick={() => setActiveTab('budget')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'budget'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                予算
+              </button>
             </nav>
           </div>
 
@@ -489,6 +525,8 @@ function TripDetail() {
                                   key={activity.id}
                                   activity={activity}
                                   canEdit={!!canEdit}
+                                  participants={participants[activity.id]}
+                                  transport={transports[activity.id]}
                                   onEdit={handleEditActivity}
                                   onDelete={handleDeleteActivity}
                                   onToggleComplete={handleToggleComplete}
@@ -503,6 +541,14 @@ function TripDetail() {
                 )}
               </div>
             )}
+
+            {/* 予算タブ */}
+            {activeTab === 'budget' && id && (
+              <div className="space-y-6">
+                <BudgetSummary tripId={id} />
+                <BudgetManager tripId={id} canEdit={!!canEdit} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -515,11 +561,42 @@ function TripDetail() {
                   tripId={id}
                   dayNumber={selectedDayNumber}
                   activity={editingActivity}
+                  tripMembers={currentTrip?.members}
+                  participants={editingActivity ? participants[editingActivity.id] : undefined}
+                  transport={editingActivity ? transports[editingActivity.id] : undefined}
                   onSubmit={handleActivitySubmit}
                   onCancel={() => {
                     setShowActivityForm(false);
                     setEditingActivity(null);
                   }}
+                  onAddParticipant={
+                    editingActivity
+                      ? async (memberId) => {
+                          await addParticipant(editingActivity.id, memberId);
+                        }
+                      : undefined
+                  }
+                  onRemoveParticipant={
+                    editingActivity
+                      ? async (memberId) => {
+                          await removeParticipant(editingActivity.id, memberId);
+                        }
+                      : undefined
+                  }
+                  onSetTransport={
+                    editingActivity
+                      ? async (data) => {
+                          await setTransport(editingActivity.id, data);
+                        }
+                      : undefined
+                  }
+                  onDeleteTransport={
+                    editingActivity
+                      ? async () => {
+                          await deleteTransport(editingActivity.id);
+                        }
+                      : undefined
+                  }
                 />
               </div>
             </div>

@@ -268,3 +268,337 @@ export async function deleteActivity(activityId: string, userId: string): Promis
     where: { id: activityId },
   });
 }
+
+// ========================================
+// 参加者管理
+// ========================================
+
+/**
+ * アクティビティに参加者を追加
+ * @param activityId - アクティビティID
+ * @param memberId - メンバーID
+ * @param userId - ユーザーID
+ */
+export async function addParticipant(
+  activityId: string,
+  memberId: string,
+  userId: string
+): Promise<void> {
+  // アクティビティを取得して権限チェック
+  const activity = await prisma.tripPlanActivity.findUnique({
+    where: { id: activityId },
+    include: {
+      tripPlan: {
+        include: {
+          members: {
+            where: { userId },
+          },
+        },
+      },
+    },
+  });
+
+  if (!activity) {
+    throw new Error('アクティビティが見つかりません');
+  }
+
+  const member = activity.tripPlan.members[0];
+  if (!member) {
+    throw new Error('このアクティビティにアクセスする権限がありません');
+  }
+  checkEditPermission(member.role);
+
+  // メンバーが同じ旅行プランに所属しているか確認
+  const targetMember = await prisma.tripPlanMember.findUnique({
+    where: { id: memberId },
+  });
+
+  if (!targetMember || targetMember.tripPlanId !== activity.tripPlanId) {
+    throw new Error('指定されたメンバーはこの旅行プランに所属していません');
+  }
+
+  // 既に参加者として登録されているか確認
+  const existingParticipant = await prisma.tripPlanActivityParticipant.findUnique({
+    where: {
+      tripPlanActivityId_tripPlanMemberId: {
+        tripPlanActivityId: activityId,
+        tripPlanMemberId: memberId,
+      },
+    },
+  });
+
+  if (existingParticipant) {
+    throw new Error('このメンバーは既に参加者として登録されています');
+  }
+
+  // 参加者を追加
+  await prisma.tripPlanActivityParticipant.create({
+    data: {
+      tripPlanActivityId: activityId,
+      tripPlanMemberId: memberId,
+    },
+  });
+}
+
+/**
+ * アクティビティから参加者を削除
+ * @param activityId - アクティビティID
+ * @param memberId - メンバーID
+ * @param userId - ユーザーID
+ */
+export async function removeParticipant(
+  activityId: string,
+  memberId: string,
+  userId: string
+): Promise<void> {
+  // アクティビティを取得して権限チェック
+  const activity = await prisma.tripPlanActivity.findUnique({
+    where: { id: activityId },
+    include: {
+      tripPlan: {
+        include: {
+          members: {
+            where: { userId },
+          },
+        },
+      },
+    },
+  });
+
+  if (!activity) {
+    throw new Error('アクティビティが見つかりません');
+  }
+
+  const member = activity.tripPlan.members[0];
+  if (!member) {
+    throw new Error('このアクティビティにアクセスする権限がありません');
+  }
+  checkEditPermission(member.role);
+
+  // 参加者を削除
+  await prisma.tripPlanActivityParticipant.delete({
+    where: {
+      tripPlanActivityId_tripPlanMemberId: {
+        tripPlanActivityId: activityId,
+        tripPlanMemberId: memberId,
+      },
+    },
+  });
+}
+
+/**
+ * アクティビティの参加者一覧を取得
+ * @param activityId - アクティビティID
+ * @param userId - ユーザーID
+ * @returns 参加者一覧
+ */
+export async function getParticipants(activityId: string, userId: string) {
+  // アクティビティを取得して権限チェック
+  const activity = await prisma.tripPlanActivity.findUnique({
+    where: { id: activityId },
+    include: {
+      tripPlan: {
+        include: {
+          members: {
+            where: { userId },
+          },
+        },
+      },
+    },
+  });
+
+  if (!activity) {
+    throw new Error('アクティビティが見つかりません');
+  }
+
+  const member = activity.tripPlan.members[0];
+  if (!member) {
+    throw new Error('このアクティビティにアクセスする権限がありません');
+  }
+
+  // 参加者一覧を取得
+  const participants = await prisma.tripPlanActivityParticipant.findMany({
+    where: {
+      tripPlanActivityId: activityId,
+    },
+    include: {
+      member: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return participants;
+}
+
+// ========================================
+// 移動手段管理
+// ========================================
+
+/**
+ * 移動手段データの型定義
+ */
+export interface TransportData {
+  transportType: string; // walk, car, train, bus, plane, other
+  durationMinutes?: number;
+  distanceKm?: number;
+  cost?: number;
+  routeData?: any;
+}
+
+/**
+ * アクティビティの移動手段を設定または更新
+ * @param activityId - アクティビティID
+ * @param userId - ユーザーID
+ * @param data - 移動手段データ
+ */
+export async function setTransport(
+  activityId: string,
+  userId: string,
+  data: TransportData
+) {
+  // アクティビティを取得して権限チェック
+  const activity = await prisma.tripPlanActivity.findUnique({
+    where: { id: activityId },
+    include: {
+      tripPlan: {
+        include: {
+          members: {
+            where: { userId },
+          },
+        },
+      },
+    },
+  });
+
+  if (!activity) {
+    throw new Error('アクティビティが見つかりません');
+  }
+
+  const member = activity.tripPlan.members[0];
+  if (!member) {
+    throw new Error('このアクティビティにアクセスする権限がありません');
+  }
+  checkEditPermission(member.role);
+
+  // 既存の移動手段を確認
+  const existingTransport = await prisma.tripPlanActivityTransport.findFirst({
+    where: {
+      tripPlanActivityId: activityId,
+    },
+  });
+
+  if (existingTransport) {
+    // 更新
+    return await prisma.tripPlanActivityTransport.update({
+      where: { id: existingTransport.id },
+      data: {
+        transportType: data.transportType,
+        durationMinutes: data.durationMinutes || null,
+        distanceKm: data.distanceKm || null,
+        cost: data.cost || null,
+        routeData: data.routeData || null,
+        isAutoCalculated: false,
+      },
+    });
+  } else {
+    // 新規作成
+    return await prisma.tripPlanActivityTransport.create({
+      data: {
+        tripPlanActivityId: activityId,
+        transportType: data.transportType,
+        durationMinutes: data.durationMinutes || null,
+        distanceKm: data.distanceKm || null,
+        cost: data.cost || null,
+        routeData: data.routeData || null,
+        isAutoCalculated: false,
+      },
+    });
+  }
+}
+
+/**
+ * アクティビティの移動手段を削除
+ * @param activityId - アクティビティID
+ * @param userId - ユーザーID
+ */
+export async function deleteTransport(activityId: string, userId: string): Promise<void> {
+  // アクティビティを取得して権限チェック
+  const activity = await prisma.tripPlanActivity.findUnique({
+    where: { id: activityId },
+    include: {
+      tripPlan: {
+        include: {
+          members: {
+            where: { userId },
+          },
+        },
+      },
+    },
+  });
+
+  if (!activity) {
+    throw new Error('アクティビティが見つかりません');
+  }
+
+  const member = activity.tripPlan.members[0];
+  if (!member) {
+    throw new Error('このアクティビティにアクセスする権限がありません');
+  }
+  checkEditPermission(member.role);
+
+  // 移動手段を削除
+  await prisma.tripPlanActivityTransport.deleteMany({
+    where: {
+      tripPlanActivityId: activityId,
+    },
+  });
+}
+
+/**
+ * アクティビティの移動手段を取得
+ * @param activityId - アクティビティID
+ * @param userId - ユーザーID
+ * @returns 移動手段情報
+ */
+export async function getTransport(activityId: string, userId: string) {
+  // アクティビティを取得して権限チェック
+  const activity = await prisma.tripPlanActivity.findUnique({
+    where: { id: activityId },
+    include: {
+      tripPlan: {
+        include: {
+          members: {
+            where: { userId },
+          },
+        },
+      },
+    },
+  });
+
+  if (!activity) {
+    throw new Error('アクティビティが見つかりません');
+  }
+
+  const member = activity.tripPlan.members[0];
+  if (!member) {
+    throw new Error('このアクティビティにアクセスする権限がありません');
+  }
+
+  // 移動手段を取得
+  const transport = await prisma.tripPlanActivityTransport.findFirst({
+    where: {
+      tripPlanActivityId: activityId,
+    },
+  });
+
+  return transport;
+}

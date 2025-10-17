@@ -5,6 +5,9 @@ import type {
   UpdateActivityData,
   GetActivitiesParams,
   ApiResponse,
+  ActivityParticipant,
+  ActivityTransport,
+  TransportData,
 } from '../types/activity';
 
 const API_BASE_PATH = '/api/v1';
@@ -100,4 +103,121 @@ export const deleteActivity = async (id: string): Promise<void> => {
   if (!response.data.success) {
     throw new Error(response.data.message || 'アクティビティの削除に失敗しました');
   }
+};
+
+// ==================== 参加者管理 ====================
+
+/**
+ * 参加者追加
+ * @param activityId - アクティビティID
+ * @param memberId - メンバーID
+ * @returns 追加された参加者
+ */
+export const addParticipant = async (
+  activityId: string,
+  memberId: string
+): Promise<ActivityParticipant> => {
+  const response = await axios.post<ApiResponse<ActivityParticipant>>(
+    `${API_BASE_PATH}/activities/${activityId}/participants/${memberId}`
+  );
+
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.message || '参加者の追加に失敗しました');
+  }
+
+  return response.data.data;
+};
+
+/**
+ * 参加者削除
+ * @param activityId - アクティビティID
+ * @param memberId - メンバーID
+ */
+export const removeParticipant = async (
+  activityId: string,
+  memberId: string
+): Promise<void> => {
+  const response = await axios.delete<ApiResponse<void>>(
+    `${API_BASE_PATH}/activities/${activityId}/participants/${memberId}`
+  );
+
+  if (!response.data.success) {
+    throw new Error(response.data.message || '参加者の削除に失敗しました');
+  }
+};
+
+/**
+ * 参加者一覧取得
+ * @param activityId - アクティビティID
+ * @returns 参加者一覧
+ */
+export const getParticipants = async (
+  activityId: string
+): Promise<ActivityParticipant[]> => {
+  const response = await axios.get<ApiResponse<ActivityParticipant[]>>(
+    `${API_BASE_PATH}/activities/${activityId}/participants`
+  );
+
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.message || '参加者一覧の取得に失敗しました');
+  }
+
+  return response.data.data;
+};
+
+// ==================== 移動手段管理 ====================
+
+/**
+ * 移動手段設定
+ * @param activityId - アクティビティID
+ * @param data - 移動手段データ
+ * @returns 設定された移動手段
+ */
+export const setTransport = async (
+  activityId: string,
+  data: TransportData
+): Promise<ActivityTransport> => {
+  const response = await axios.put<ApiResponse<ActivityTransport>>(
+    `${API_BASE_PATH}/activities/${activityId}/transport`,
+    data
+  );
+
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.message || '移動手段の設定に失敗しました');
+  }
+
+  return response.data.data;
+};
+
+/**
+ * 移動手段削除
+ * @param activityId - アクティビティID
+ */
+export const deleteTransport = async (activityId: string): Promise<void> => {
+  const response = await axios.delete<ApiResponse<void>>(
+    `${API_BASE_PATH}/activities/${activityId}/transport`
+  );
+
+  if (!response.data.success) {
+    throw new Error(response.data.message || '移動手段の削除に失敗しました');
+  }
+};
+
+/**
+ * 移動手段取得
+ * @param activityId - アクティビティID
+ * @returns 移動手段
+ */
+export const getTransport = async (
+  activityId: string
+): Promise<ActivityTransport | null> => {
+  const response = await axios.get<ApiResponse<ActivityTransport | null>>(
+    `${API_BASE_PATH}/activities/${activityId}/transport`
+  );
+
+  if (!response.data.success) {
+    throw new Error(response.data.message || '移動手段の取得に失敗しました');
+  }
+
+  return response.data.data || null;
 };
