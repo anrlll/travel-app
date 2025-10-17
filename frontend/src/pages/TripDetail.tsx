@@ -54,6 +54,10 @@ function TripDetail() {
     updateActivity,
     deleteActivity,
     toggleActivityCompletion,
+    reorderActivity,
+    moveActivityToDay,
+    batchDeleteActivities,
+    batchToggleCompletion,
   } = activityStore;
   const { user } = useAuthStore();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -63,6 +67,9 @@ function TripDetail() {
   const [showActivityForm, setShowActivityForm] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [selectedDayNumber, setSelectedDayNumber] = useState<number>(1);
+  // 選択モード用の状態
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedActivities, setSelectedActivities] = useState<Set<string>>(new Set());
 
   // 初回マウント時に旅行プラン詳細を取得
   useEffect(() => {
@@ -196,6 +203,132 @@ function TripDetail() {
       // エラーはストアで処理済み
       throw error;
     }
+  };
+
+  // 順序変更ハンドラー
+  const handleMoveUp = async (activityId: string) => {
+    if (!id) return;
+
+    const activity = activities.find((a) => a.id === activityId);
+    if (!activity) return;
+
+    const dayActivities = activities
+      .filter((a) => a.dayNumber === activity.dayNumber)
+      .sort((a, b) => a.order - b.order);
+
+    const currentIndex = dayActivities.findIndex((a) => a.id === activityId);
+    if (currentIndex <= 0) return;
+
+    const newOrder = dayActivities[currentIndex - 1].order;
+
+    // スクロール位置を保存
+    const scrollPosition = window.scrollY;
+
+    try {
+      await reorderActivity(activityId, newOrder);
+      // 順序変更後、アクティビティリストを再取得
+      await fetchActivities(id);
+
+      // 次のフレームでスクロール位置を復元
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollPosition);
+      });
+    } catch (error) {
+      console.error('順序変更エラー:', error);
+    }
+  };
+
+  const handleMoveDown = async (activityId: string) => {
+    if (!id) return;
+
+    const activity = activities.find((a) => a.id === activityId);
+    if (!activity) return;
+
+    const dayActivities = activities
+      .filter((a) => a.dayNumber === activity.dayNumber)
+      .sort((a, b) => a.order - b.order);
+
+    const currentIndex = dayActivities.findIndex((a) => a.id === activityId);
+    if (currentIndex >= dayActivities.length - 1) return;
+
+    const newOrder = dayActivities[currentIndex + 1].order;
+
+    // スクロール位置を保存
+    const scrollPosition = window.scrollY;
+
+    try {
+      await reorderActivity(activityId, newOrder);
+      // 順序変更後、アクティビティリストを再取得
+      await fetchActivities(id);
+
+      // 次のフレームでスクロール位置を復元
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollPosition);
+      });
+    } catch (error) {
+      console.error('順序変更エラー:', error);
+    }
+  };
+
+  // 日移動ハンドラー
+  const handleMoveToDay = async (activityId: string, dayNumber: number) => {
+    if (!id) return;
+
+    // スクロール位置を保存
+    const scrollPosition = window.scrollY;
+
+    try {
+      await moveActivityToDay(activityId, dayNumber);
+      // 日移動後、アクティビティリストを再取得
+      await fetchActivities(id);
+
+      // 次のフレームでスクロール位置を復元
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollPosition);
+      });
+    } catch (error) {
+      console.error('日移動エラー:', error);
+    }
+  };
+
+  // 一括削除
+  const handleBatchDelete = async () => {
+    if (!id || selectedActivities.size === 0) return;
+    if (!window.confirm(`${selectedActivities.size}件のアクティビティを削除しますか?`)) return;
+
+    try {
+      await batchDeleteActivities(id, Array.from(selectedActivities));
+      setSelectedActivities(new Set());
+      setSelectionMode(false);
+    } catch (error) {
+      console.error('一括削除エラー:', error);
+    }
+  };
+
+  // 一括完了
+  const handleBatchComplete = async (isCompleted: boolean) => {
+    if (!id || selectedActivities.size === 0) return;
+
+    try {
+      await batchToggleCompletion(id, Array.from(selectedActivities), isCompleted);
+      setSelectedActivities(new Set());
+      setSelectionMode(false);
+    } catch (error) {
+      console.error('一括完了切り替えエラー:', error);
+    }
+  };
+
+  // アクティビティ選択
+  const handleSelectActivity = (activityId: string) => {
+    setSelectedActivities((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(activityId)) {
+        newSet.delete(activityId);
+      } else {
+        newSet.add(activityId);
+      }
+      return newSet;
+    });
   };
 
   // ローディング表示
@@ -504,14 +637,28 @@ function TripDetail() {
                               Day {dayNumber}
                               {dayDate && ` - ${format(dayDate, 'M月d日（E）', { locale: ja })}`}
                             </h3>
-                            {canEdit && (
-                              <button
-                                onClick={() => handleAddActivity(dayNumber)}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm"
-                              >
-                                + アクティビティを追加
-                              </button>
-                            )}
+                            <div className="flex gap-2">
+                              {canEdit && dayActivities.length > 0 && (
+                                <button
+                                  onClick={() => setSelectionMode(!selectionMode)}
+                                  className={`px-4 py-2 rounded-md transition-colors text-sm ${
+                                    selectionMode
+                                      ? 'bg-gray-600 hover:bg-gray-700 text-white'
+                                      : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                                  }`}
+                                >
+                                  {selectionMode ? '選択モード終了' : '選択モード'}
+                                </button>
+                              )}
+                              {canEdit && (
+                                <button
+                                  onClick={() => handleAddActivity(dayNumber)}
+                                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm"
+                                >
+                                  + アクティビティを追加
+                                </button>
+                              )}
+                            </div>
                           </div>
 
                           {dayActivities.length === 0 ? (
@@ -520,17 +667,35 @@ function TripDetail() {
                             </p>
                           ) : (
                             <div className="space-y-3">
-                              {dayActivities.map((activity) => (
-                                <ActivityCard
-                                  key={activity.id}
-                                  activity={activity}
-                                  canEdit={!!canEdit}
-                                  participants={participants[activity.id]}
-                                  transport={transports[activity.id]}
-                                  onEdit={handleEditActivity}
-                                  onDelete={handleDeleteActivity}
-                                  onToggleComplete={handleToggleComplete}
-                                />
+                              {dayActivities.map((activity, index) => (
+                                <div key={activity.id} className="relative">
+                                  {/* 選択チェックボックス */}
+                                  {selectionMode && (
+                                    <div className="absolute top-2 right-2 z-10">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedActivities.has(activity.id)}
+                                        onChange={() => handleSelectActivity(activity.id)}
+                                        className="w-5 h-5 cursor-pointer"
+                                      />
+                                    </div>
+                                  )}
+                                  <ActivityCard
+                                    activity={activity}
+                                    canEdit={!!canEdit && !selectionMode}
+                                    participants={participants[activity.id]}
+                                    transport={transports[activity.id]}
+                                    onEdit={handleEditActivity}
+                                    onDelete={handleDeleteActivity}
+                                    onToggleComplete={handleToggleComplete}
+                                    isFirst={index === 0}
+                                    isLast={index === dayActivities.length - 1}
+                                    onMoveUp={handleMoveUp}
+                                    onMoveDown={handleMoveDown}
+                                    availableDays={days}
+                                    onMoveToDay={handleMoveToDay}
+                                  />
+                                </div>
                               ))}
                             </div>
                           )}
@@ -554,50 +719,100 @@ function TripDetail() {
 
         {/* アクティビティフォームモーダル */}
         {showActivityForm && id && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4 overflow-y-auto">
-            <div className="bg-white rounded-lg max-w-2xl w-full my-8">
-              <div className="p-6">
-                <ActivityForm
-                  tripId={id}
-                  dayNumber={selectedDayNumber}
-                  activity={editingActivity}
-                  tripMembers={currentTrip?.members}
-                  participants={editingActivity ? participants[editingActivity.id] : undefined}
-                  transport={editingActivity ? transports[editingActivity.id] : undefined}
-                  onSubmit={handleActivitySubmit}
-                  onCancel={() => {
-                    setShowActivityForm(false);
-                    setEditingActivity(null);
-                  }}
-                  onAddParticipant={
-                    editingActivity
-                      ? async (memberId) => {
-                          await addParticipant(editingActivity.id, memberId);
-                        }
-                      : undefined
-                  }
-                  onRemoveParticipant={
-                    editingActivity
-                      ? async (memberId) => {
-                          await removeParticipant(editingActivity.id, memberId);
-                        }
-                      : undefined
-                  }
-                  onSetTransport={
-                    editingActivity
-                      ? async (data) => {
-                          await setTransport(editingActivity.id, data);
-                        }
-                      : undefined
-                  }
-                  onDeleteTransport={
-                    editingActivity
-                      ? async () => {
-                          await deleteTransport(editingActivity.id);
-                        }
-                      : undefined
-                  }
-                />
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+            <div className="min-h-screen flex justify-center items-center p-4">
+              <div className="bg-white rounded-lg max-w-2xl w-full my-8">
+                <div className="p-6">
+                  <ActivityForm
+                    tripId={id}
+                    dayNumber={selectedDayNumber}
+                    activity={editingActivity}
+                    tripMembers={currentTrip?.members}
+                    participants={editingActivity ? participants[editingActivity.id] : undefined}
+                    transport={editingActivity ? transports[editingActivity.id] : undefined}
+                    onSubmit={handleActivitySubmit}
+                    onCancel={() => {
+                      setShowActivityForm(false);
+                      setEditingActivity(null);
+                    }}
+                    onAddParticipant={
+                      editingActivity
+                        ? async (memberId) => {
+                            await addParticipant(editingActivity.id, memberId);
+                          }
+                        : undefined
+                    }
+                    onRemoveParticipant={
+                      editingActivity
+                        ? async (memberId) => {
+                            await removeParticipant(editingActivity.id, memberId);
+                          }
+                        : undefined
+                    }
+                    onSetTransport={
+                      editingActivity
+                        ? async (data) => {
+                            await setTransport(editingActivity.id, data);
+                          }
+                        : undefined
+                    }
+                    onDeleteTransport={
+                      editingActivity
+                        ? async () => {
+                            await deleteTransport(editingActivity.id);
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 一括操作バー */}
+        {selectionMode && selectedActivities.size > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-300 shadow-lg z-40">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <div className="flex items-center justify-between">
+                <div className="text-gray-700 font-medium">
+                  {selectedActivities.size}件選択中
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      const allActivitiesInView = activities.map((a) => a.id);
+                      setSelectedActivities(new Set(allActivitiesInView));
+                    }}
+                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors text-sm"
+                  >
+                    すべて選択
+                  </button>
+                  <button
+                    onClick={() => setSelectedActivities(new Set())}
+                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors text-sm"
+                  >
+                    選択解除
+                  </button>
+                  <button
+                    onClick={() => handleBatchComplete(true)}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors text-sm"
+                  >
+                    完了にする
+                  </button>
+                  <button
+                    onClick={() => handleBatchComplete(false)}
+                    className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors text-sm"
+                  >
+                    未完了にする
+                  </button>
+                  <button
+                    onClick={handleBatchDelete}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors text-sm"
+                  >
+                    削除
+                  </button>
+                </div>
               </div>
             </div>
           </div>

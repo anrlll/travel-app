@@ -39,6 +39,12 @@ interface ActivityStore {
   setTransport: (activityId: string, data: TransportData) => Promise<void>;
   deleteTransport: (activityId: string) => Promise<void>;
   fetchTransport: (activityId: string) => Promise<void>;
+
+  // 順序変更・一括操作
+  reorderActivity: (activityId: string, newOrder: number) => Promise<void>;
+  moveActivityToDay: (activityId: string, dayNumber: number, newOrder?: number) => Promise<void>;
+  batchDeleteActivities: (tripId: string, activityIds: string[]) => Promise<void>;
+  batchToggleCompletion: (tripId: string, activityIds: string[], isCompleted: boolean) => Promise<void>;
 }
 
 /**
@@ -326,6 +332,112 @@ export const useActivityStore = create<ActivityStore>()((set, get) => ({
       }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '移動手段の取得に失敗しました';
+      set({ error: errorMessage, isLoading: false });
+      throw error;
+    }
+  },
+
+  // ==================== 順序変更・一括操作 ====================
+
+  // 同一日内での順序変更
+  reorderActivity: async (activityId: string, newOrder: number) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const updatedActivity = await activityService.reorderActivity(activityId, newOrder);
+
+      // アクティビティ一覧を更新してソート
+      set((state) => {
+        const updatedActivities = state.activities
+          .map((activity) => (activity.id === activityId ? updatedActivity : activity))
+          .sort((a, b) => {
+            if (a.dayNumber !== b.dayNumber) {
+              return a.dayNumber - b.dayNumber;
+            }
+            return a.order - b.order;
+          });
+
+        return {
+          activities: updatedActivities,
+          isLoading: false,
+        };
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '順序変更に失敗しました';
+      set({ error: errorMessage, isLoading: false });
+      throw error;
+    }
+  },
+
+  // 日をまたぐ移動
+  moveActivityToDay: async (activityId: string, dayNumber: number, newOrder?: number) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const updatedActivity = await activityService.moveActivityToDay(activityId, dayNumber, newOrder);
+
+      // アクティビティ一覧を更新してソート
+      set((state) => {
+        const updatedActivities = state.activities
+          .map((activity) => (activity.id === activityId ? updatedActivity : activity))
+          .sort((a, b) => {
+            if (a.dayNumber !== b.dayNumber) {
+              return a.dayNumber - b.dayNumber;
+            }
+            return a.order - b.order;
+          });
+
+        return {
+          activities: updatedActivities,
+          isLoading: false,
+        };
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '日移動に失敗しました';
+      set({ error: errorMessage, isLoading: false });
+      throw error;
+    }
+  },
+
+  // 一括削除
+  batchDeleteActivities: async (tripId: string, activityIds: string[]) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      await activityService.batchDeleteActivities(tripId, activityIds);
+
+      // 一覧から削除
+      set((state) => ({
+        activities: state.activities.filter((activity) => !activityIds.includes(activity.id)),
+        isLoading: false,
+      }));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '一括削除に失敗しました';
+      set({ error: errorMessage, isLoading: false });
+      throw error;
+    }
+  },
+
+  // 一括完了切り替え
+  batchToggleCompletion: async (tripId: string, activityIds: string[], isCompleted: boolean) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      await activityService.batchToggleCompletion(tripId, activityIds, isCompleted);
+
+      // 一覧を更新
+      set((state) => {
+        const updatedActivities = state.activities.map((activity) =>
+          activityIds.includes(activity.id) ? { ...activity, isCompleted } : activity
+        );
+
+        return {
+          activities: updatedActivities,
+          isLoading: false,
+        };
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '一括完了切り替えに失敗しました';
       set({ error: errorMessage, isLoading: false });
       throw error;
     }

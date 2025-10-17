@@ -602,3 +602,353 @@ export async function getTransport(activityId: string, userId: string) {
 
   return transport;
 }
+
+// ========================================
+// 順序変更・一括操作
+// ========================================
+
+/**
+ * 同一日内でアクティビティの順序を変更
+ * @param activityId - アクティビティID
+ * @param userId - ユーザーID
+ * @param newOrder - 新しい順序
+ * @returns 更新されたアクティビティ
+ */
+export async function reorderActivity(
+  activityId: string,
+  userId: string,
+  newOrder: number
+) {
+  // アクティビティを取得して権限チェック
+  const activity = await prisma.tripPlanActivity.findUnique({
+    where: { id: activityId },
+    include: {
+      tripPlan: {
+        include: {
+          members: {
+            where: { userId },
+          },
+        },
+      },
+    },
+  });
+
+  if (!activity) {
+    throw new Error('アクティビティが見つかりません');
+  }
+
+  const member = activity.tripPlan.members[0];
+  if (!member) {
+    throw new Error('このアクティビティにアクセスする権限がありません');
+  }
+  checkEditPermission(member.role);
+
+  const oldOrder = activity.order;
+  const dayNumber = activity.dayNumber;
+
+  // 同じ日の他のアクティビティを取得
+  const dayActivities = await prisma.tripPlanActivity.findMany({
+    where: {
+      tripPlanId: activity.tripPlanId,
+      dayNumber: dayNumber,
+    },
+    orderBy: {
+      order: 'asc',
+    },
+  });
+
+  // トランザクション内でorder値を再計算して更新
+  await prisma.$transaction(async (tx) => {
+    // 移動方向によって処理を分ける
+    if (newOrder < oldOrder) {
+      // 上に移動: newOrder～oldOrder-1の範囲を+1
+      await tx.tripPlanActivity.updateMany({
+        where: {
+          tripPlanId: activity.tripPlanId,
+          dayNumber: dayNumber,
+          order: {
+            gte: newOrder,
+            lt: oldOrder,
+          },
+        },
+        data: {
+          order: {
+            increment: 1,
+          },
+        },
+      });
+    } else if (newOrder > oldOrder) {
+      // 下に移動: oldOrder+1～newOrderの範囲を-1
+      await tx.tripPlanActivity.updateMany({
+        where: {
+          tripPlanId: activity.tripPlanId,
+          dayNumber: dayNumber,
+          order: {
+            gt: oldOrder,
+            lte: newOrder,
+          },
+        },
+        data: {
+          order: {
+            decrement: 1,
+          },
+        },
+      });
+    }
+
+    // 対象アクティビティのorderを更新
+    await tx.tripPlanActivity.update({
+      where: { id: activityId },
+      data: { order: newOrder },
+    });
+  });
+
+  // 更新後のアクティビティを取得して返す
+  const updatedActivity = await prisma.tripPlanActivity.findUnique({
+    where: { id: activityId },
+  });
+
+  return updatedActivity;
+}
+
+/**
+ * アクティビティを別の日に移動
+ * @param activityId - アクティビティID
+ * @param userId - ユーザーID
+ * @param newDayNumber - 新しい日番号
+ * @param newOrder - 新しい順序（省略時は末尾に追加）
+ * @returns 更新されたアクティビティ
+ */
+export async function moveActivityToDay(
+  activityId: string,
+  userId: string,
+  newDayNumber: number,
+  newOrder?: number
+) {
+  // アクティビティを取得して権限チェック
+  const activity = await prisma.tripPlanActivity.findUnique({
+    where: { id: activityId },
+    include: {
+      tripPlan: {
+        include: {
+          members: {
+            where: { userId },
+          },
+        },
+      },
+    },
+  });
+
+  if (!activity) {
+    throw new Error('アクティビティが見つかりません');
+  }
+
+  const member = activity.tripPlan.members[0];
+  if (!member) {
+    throw new Error('このアクティビティにアクセスする権限がありません');
+  }
+  checkEditPermission(member.role);
+
+  const oldDayNumber = activity.dayNumber;
+  const oldOrder = activity.order;
+
+  // 同じ日への移動の場合はreorderActivityを使用
+  if (newDayNumber === oldDayNumber) {
+    if (newOrder !== undefined && newOrder !== oldOrder) {
+      return await reorderActivity(activityId, userId, newOrder);
+    }
+    return activity;
+  }
+
+  // 移動先の日の最大order値を取得
+  const maxOrderActivity = await prisma.tripPlanActivity.findFirst({
+    where: {
+      tripPlanId: activity.tripPlanId,
+      dayNumber: newDayNumber,
+    },
+    orderBy: {
+      order: 'desc',
+    },
+  });
+
+  const targetOrder = newOrder !== undefined ? newOrder : (maxOrderActivity ? maxOrderActivity.order + 1 : 0);
+
+  // トランザクション内で処理
+  await prisma.$transaction(async (tx) => {
+    // 元の日で、削除されたアクティビティより後ろのorderを-1
+    await tx.tripPlanActivity.updateMany({
+      where: {
+        tripPlanId: activity.tripPlanId,
+        dayNumber: oldDayNumber,
+        order: {
+          gt: oldOrder,
+        },
+      },
+      data: {
+        order: {
+          decrement: 1,
+        },
+      },
+    });
+
+    // 移動先の日で、挿入位置以降のorderを+1
+    await tx.tripPlanActivity.updateMany({
+      where: {
+        tripPlanId: activity.tripPlanId,
+        dayNumber: newDayNumber,
+        order: {
+          gte: targetOrder,
+        },
+      },
+      data: {
+        order: {
+          increment: 1,
+        },
+      },
+    });
+
+    // アクティビティを更新
+    await tx.tripPlanActivity.update({
+      where: { id: activityId },
+      data: {
+        dayNumber: newDayNumber,
+        order: targetOrder,
+      },
+    });
+  });
+
+  // 更新後のアクティビティを取得して返す
+  const updatedActivity = await prisma.tripPlanActivity.findUnique({
+    where: { id: activityId },
+  });
+
+  return updatedActivity;
+}
+
+/**
+ * 複数のアクティビティを一括削除
+ * @param tripId - 旅行プランID
+ * @param userId - ユーザーID
+ * @param activityIds - 削除するアクティビティIDの配列
+ */
+export async function batchDeleteActivities(
+  tripId: string,
+  userId: string,
+  activityIds: string[]
+): Promise<void> {
+  // 権限チェック
+  const { member } = await getTripPlanWithMemberCheck(tripId, userId);
+  checkEditPermission(member.role);
+
+  // 指定されたアクティビティがすべて同じ旅行プランに属しているか確認
+  const activities = await prisma.tripPlanActivity.findMany({
+    where: {
+      id: {
+        in: activityIds,
+      },
+    },
+  });
+
+  if (activities.length !== activityIds.length) {
+    throw new Error('一部のアクティビティが見つかりません');
+  }
+
+  const invalidActivity = activities.find((a) => a.tripPlanId !== tripId);
+  if (invalidActivity) {
+    throw new Error('指定されたアクティビティの一部がこの旅行プランに属していません');
+  }
+
+  // トランザクション内で削除とorder値の再計算
+  await prisma.$transaction(async (tx) => {
+    // 削除対象のアクティビティを日ごとにグループ化
+    const activitiesByDay = activities.reduce((acc, activity) => {
+      if (!acc[activity.dayNumber]) {
+        acc[activity.dayNumber] = [];
+      }
+      acc[activity.dayNumber].push(activity);
+      return acc;
+    }, {} as Record<number, typeof activities>);
+
+    // 各日ごとに処理
+    for (const [dayNumber, dayActivities] of Object.entries(activitiesByDay)) {
+      // 削除対象のorder値を取得してソート
+      const deletedOrders = dayActivities.map((a) => a.order).sort((a, b) => a - b);
+
+      // アクティビティを削除
+      await tx.tripPlanActivity.deleteMany({
+        where: {
+          id: {
+            in: dayActivities.map((a) => a.id),
+          },
+        },
+      });
+
+      // 残りのアクティビティのorder値を再計算
+      const remainingActivities = await tx.tripPlanActivity.findMany({
+        where: {
+          tripPlanId: tripId,
+          dayNumber: parseInt(dayNumber),
+        },
+        orderBy: {
+          order: 'asc',
+        },
+      });
+
+      // order値を0から順に振り直す
+      for (let i = 0; i < remainingActivities.length; i++) {
+        await tx.tripPlanActivity.update({
+          where: { id: remainingActivities[i].id },
+          data: { order: i },
+        });
+      }
+    }
+  });
+}
+
+/**
+ * 複数のアクティビティの完了状態を一括変更
+ * @param tripId - 旅行プランID
+ * @param userId - ユーザーID
+ * @param activityIds - 対象アクティビティIDの配列
+ * @param isCompleted - 完了状態
+ */
+export async function batchToggleCompletion(
+  tripId: string,
+  userId: string,
+  activityIds: string[],
+  isCompleted: boolean
+): Promise<void> {
+  // 権限チェック
+  const { member } = await getTripPlanWithMemberCheck(tripId, userId);
+  checkEditPermission(member.role);
+
+  // 指定されたアクティビティがすべて同じ旅行プランに属しているか確認
+  const activities = await prisma.tripPlanActivity.findMany({
+    where: {
+      id: {
+        in: activityIds,
+      },
+    },
+  });
+
+  if (activities.length !== activityIds.length) {
+    throw new Error('一部のアクティビティが見つかりません');
+  }
+
+  const invalidActivity = activities.find((a) => a.tripPlanId !== tripId);
+  if (invalidActivity) {
+    throw new Error('指定されたアクティビティの一部がこの旅行プランに属していません');
+  }
+
+  // 一括更新
+  await prisma.tripPlanActivity.updateMany({
+    where: {
+      id: {
+        in: activityIds,
+      },
+    },
+    data: {
+      isCompleted: isCompleted,
+    },
+  });
+}

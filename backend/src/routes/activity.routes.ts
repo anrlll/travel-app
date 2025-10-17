@@ -526,4 +526,142 @@ export async function activityRoutes(fastify: FastifyInstance) {
       }
     }
   );
+
+  // ========================================
+  // 順序変更・一括操作エンドポイント
+  // ========================================
+
+  // PATCH /api/v1/activities/:id/reorder - 同一日内での順序変更
+  fastify.patch<{ Params: ActivityIdParam; Body: { newOrder: number } }>(
+    '/activities/:id/reorder',
+    { preHandler: authMiddleware },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.status(401).send({ success: false, error: 'Unauthorized', message: '認証が必要です' });
+        }
+
+        const { newOrder } = request.body;
+        if (typeof newOrder !== 'number' || newOrder < 0) {
+          return reply.status(400).send({ success: false, error: 'ValidationError', message: '新しい順序は0以上の数値である必要があります' });
+        }
+
+        const activity = await activityService.reorderActivity(request.params.id, request.user.userId, newOrder);
+        return reply.status(200).send({ success: true, data: activity });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('権限がありません')) {
+            return reply.status(403).send({ success: false, error: 'ForbiddenError', message: error.message });
+          }
+          if (error.message.includes('見つかりません')) {
+            return reply.status(404).send({ success: false, error: 'NotFoundError', message: error.message });
+          }
+          return reply.status(400).send({ success: false, error: 'ReorderActivityError', message: error.message });
+        }
+        return reply.status(500).send({ success: false, error: 'InternalServerError', message: '順序変更中にエラーが発生しました' });
+      }
+    }
+  );
+
+  // PATCH /api/v1/activities/:id/move - 日をまたぐ移動
+  fastify.patch<{ Params: ActivityIdParam; Body: { dayNumber: number; newOrder?: number } }>(
+    '/activities/:id/move',
+    { preHandler: authMiddleware },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.status(401).send({ success: false, error: 'Unauthorized', message: '認証が必要です' });
+        }
+
+        const { dayNumber, newOrder } = request.body;
+        if (typeof dayNumber !== 'number' || dayNumber < 1) {
+          return reply.status(400).send({ success: false, error: 'ValidationError', message: '日番号は1以上の数値である必要があります' });
+        }
+        if (newOrder !== undefined && (typeof newOrder !== 'number' || newOrder < 0)) {
+          return reply.status(400).send({ success: false, error: 'ValidationError', message: '新しい順序は0以上の数値である必要があります' });
+        }
+
+        const activity = await activityService.moveActivityToDay(request.params.id, request.user.userId, dayNumber, newOrder);
+        return reply.status(200).send({ success: true, data: activity });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('権限がありません')) {
+            return reply.status(403).send({ success: false, error: 'ForbiddenError', message: error.message });
+          }
+          if (error.message.includes('見つかりません')) {
+            return reply.status(404).send({ success: false, error: 'NotFoundError', message: error.message });
+          }
+          return reply.status(400).send({ success: false, error: 'MoveActivityError', message: error.message });
+        }
+        return reply.status(500).send({ success: false, error: 'InternalServerError', message: '日移動中にエラーが発生しました' });
+      }
+    }
+  );
+
+  // DELETE /api/v1/trips/:tripId/activities/batch - 一括削除
+  fastify.delete<{ Params: TripIdParam; Body: { activityIds: string[] } }>(
+    '/trips/:tripId/activities/batch',
+    { preHandler: authMiddleware },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.status(401).send({ success: false, error: 'Unauthorized', message: '認証が必要です' });
+        }
+
+        const { activityIds } = request.body;
+        if (!Array.isArray(activityIds) || activityIds.length === 0) {
+          return reply.status(400).send({ success: false, error: 'ValidationError', message: 'activityIdsは空でない配列である必要があります' });
+        }
+
+        await activityService.batchDeleteActivities(request.params.tripId, request.user.userId, activityIds);
+        return reply.status(200).send({ success: true, message: `${activityIds.length}件のアクティビティを削除しました` });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('権限がありません')) {
+            return reply.status(403).send({ success: false, error: 'ForbiddenError', message: error.message });
+          }
+          if (error.message.includes('見つかりません') || error.message.includes('属していません')) {
+            return reply.status(404).send({ success: false, error: 'NotFoundError', message: error.message });
+          }
+          return reply.status(400).send({ success: false, error: 'BatchDeleteError', message: error.message });
+        }
+        return reply.status(500).send({ success: false, error: 'InternalServerError', message: '一括削除中にエラーが発生しました' });
+      }
+    }
+  );
+
+  // PATCH /api/v1/trips/:tripId/activities/batch-complete - 一括完了切り替え
+  fastify.patch<{ Params: TripIdParam; Body: { activityIds: string[]; isCompleted: boolean } }>(
+    '/trips/:tripId/activities/batch-complete',
+    { preHandler: authMiddleware },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.status(401).send({ success: false, error: 'Unauthorized', message: '認証が必要です' });
+        }
+
+        const { activityIds, isCompleted } = request.body;
+        if (!Array.isArray(activityIds) || activityIds.length === 0) {
+          return reply.status(400).send({ success: false, error: 'ValidationError', message: 'activityIdsは空でない配列である必要があります' });
+        }
+        if (typeof isCompleted !== 'boolean') {
+          return reply.status(400).send({ success: false, error: 'ValidationError', message: 'isCompletedはboolean値である必要があります' });
+        }
+
+        await activityService.batchToggleCompletion(request.params.tripId, request.user.userId, activityIds, isCompleted);
+        return reply.status(200).send({ success: true, message: `${activityIds.length}件のアクティビティを${isCompleted ? '完了' : '未完了'}に設定しました` });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('権限がありません')) {
+            return reply.status(403).send({ success: false, error: 'ForbiddenError', message: error.message });
+          }
+          if (error.message.includes('見つかりません') || error.message.includes('属していません')) {
+            return reply.status(404).send({ success: false, error: 'NotFoundError', message: error.message });
+          }
+          return reply.status(400).send({ success: false, error: 'BatchCompleteError', message: error.message });
+        }
+        return reply.status(500).send({ success: false, error: 'InternalServerError', message: '一括完了切り替え中にエラーが発生しました' });
+      }
+    }
+  );
 }

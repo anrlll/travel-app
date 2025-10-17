@@ -35,13 +35,13 @@ type ActivityFormData = z.infer<typeof activityFormSchema>;
 
 interface TripMember {
   id: string;
-  userId?: string;
-  guestName?: string;
+  userId: string | null;
+  guestName: string | null;
   role: string;
   user?: {
     id: string;
     username: string;
-    displayName: string;
+    displayName: string | null;
   };
 }
 

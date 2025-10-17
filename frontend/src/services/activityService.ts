@@ -221,3 +221,91 @@ export const getTransport = async (
 
   return response.data.data || null;
 };
+
+// ==================== 順序変更・一括操作 ====================
+
+/**
+ * 同一日内での順序変更
+ * @param activityId - アクティビティID
+ * @param newOrder - 新しい順序
+ * @returns 更新されたアクティビティ
+ */
+export const reorderActivity = async (
+  activityId: string,
+  newOrder: number
+): Promise<Activity> => {
+  const response = await axios.patch<ApiResponse<Activity>>(
+    `${API_BASE_PATH}/activities/${activityId}/reorder`,
+    { newOrder }
+  );
+
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.message || '順序変更に失敗しました');
+  }
+
+  return response.data.data;
+};
+
+/**
+ * 日をまたぐ移動
+ * @param activityId - アクティビティID
+ * @param dayNumber - 新しい日番号
+ * @param newOrder - 新しい順序（省略可）
+ * @returns 更新されたアクティビティ
+ */
+export const moveActivityToDay = async (
+  activityId: string,
+  dayNumber: number,
+  newOrder?: number
+): Promise<Activity> => {
+  const response = await axios.patch<ApiResponse<Activity>>(
+    `${API_BASE_PATH}/activities/${activityId}/move`,
+    { dayNumber, newOrder }
+  );
+
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.message || '日移動に失敗しました');
+  }
+
+  return response.data.data;
+};
+
+/**
+ * 一括削除
+ * @param tripId - 旅行プランID
+ * @param activityIds - 削除するアクティビティIDの配列
+ */
+export const batchDeleteActivities = async (
+  tripId: string,
+  activityIds: string[]
+): Promise<void> => {
+  const response = await axios.delete<ApiResponse<void>>(
+    `${API_BASE_PATH}/trips/${tripId}/activities/batch`,
+    { data: { activityIds } }
+  );
+
+  if (!response.data.success) {
+    throw new Error(response.data.message || '一括削除に失敗しました');
+  }
+};
+
+/**
+ * 一括完了切り替え
+ * @param tripId - 旅行プランID
+ * @param activityIds - 対象アクティビティIDの配列
+ * @param isCompleted - 完了状態
+ */
+export const batchToggleCompletion = async (
+  tripId: string,
+  activityIds: string[],
+  isCompleted: boolean
+): Promise<void> => {
+  const response = await axios.patch<ApiResponse<void>>(
+    `${API_BASE_PATH}/trips/${tripId}/activities/batch-complete`,
+    { activityIds, isCompleted }
+  );
+
+  if (!response.data.success) {
+    throw new Error(response.data.message || '一括完了切り替えに失敗しました');
+  }
+};

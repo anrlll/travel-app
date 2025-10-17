@@ -17,6 +17,14 @@ interface ActivityCardProps {
   onEdit: (activity: Activity) => void;
   onDelete: (activityId: string) => void;
   onToggleComplete: (activityId: string) => void;
+  // 順序変更用
+  isFirst?: boolean;
+  isLast?: boolean;
+  onMoveUp?: (activityId: string) => void;
+  onMoveDown?: (activityId: string) => void;
+  // 日移動用
+  availableDays?: number[];
+  onMoveToDay?: (activityId: string, dayNumber: number) => void;
 }
 
 function ActivityCard({
@@ -27,6 +35,12 @@ function ActivityCard({
   onEdit,
   onDelete,
   onToggleComplete,
+  isFirst,
+  isLast,
+  onMoveUp,
+  onMoveDown,
+  availableDays,
+  onMoveToDay,
 }: ActivityCardProps) {
   // 時間フォーマット
   const formatTime = (dateString?: string) => {
@@ -186,23 +200,67 @@ function ActivityCard({
 
       {/* アクションボタン */}
       {canEdit && (
-        <div className="flex gap-2 mt-4 pt-3 border-t border-gray-200">
-          <button
-            onClick={() => onEdit(activity)}
-            className="flex-1 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
-          >
-            編集
-          </button>
-          <button
-            onClick={() => {
-              if (window.confirm('このアクティビティを削除しますか?')) {
-                onDelete(activity.id);
-              }
-            }}
-            className="flex-1 px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
-          >
-            削除
-          </button>
+        <div className="mt-4 pt-3 border-t border-gray-200 space-y-2">
+          {/* 順序変更ボタン */}
+          {(onMoveUp || onMoveDown) && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => onMoveUp?.(activity.id)}
+                disabled={isFirst}
+                className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="上に移動"
+              >
+                ↑
+              </button>
+              <button
+                onClick={() => onMoveDown?.(activity.id)}
+                disabled={isLast}
+                className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="下に移動"
+              >
+                ↓
+              </button>
+              {/* 日移動ドロップダウン */}
+              {onMoveToDay && availableDays && availableDays.length > 1 && (
+                <select
+                  value={activity.dayNumber}
+                  onChange={(e) => {
+                    const newDay = parseInt(e.target.value);
+                    if (newDay !== activity.dayNumber) {
+                      onMoveToDay(activity.id, newDay);
+                    }
+                  }}
+                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {availableDays.map((day) => (
+                    <option key={day} value={day}>
+                      {day === activity.dayNumber ? `Day ${day} (現在)` : `Day ${day}に移動`}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
+          {/* 編集・削除ボタン */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => onEdit(activity)}
+              className="flex-1 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+            >
+              編集
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm('このアクティビティを削除しますか?')) {
+                  onDelete(activity.id);
+                }
+              }}
+              className="flex-1 px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+            >
+              削除
+            </button>
+          </div>
         </div>
       )}
     </div>
