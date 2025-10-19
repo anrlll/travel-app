@@ -2,7 +2,7 @@
  * キャンバスプランニングページ - Phase 2.4b: 完全実装
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ReactFlow,
@@ -18,6 +18,8 @@ import {
   EdgeTypes,
   OnConnect,
   BackgroundVariant,
+  ReactFlowProvider,
+  useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -35,16 +37,18 @@ import axios from '../lib/axios';
 
 // カスタムノード・エッジタイプの定義
 const nodeTypes: NodeTypes = {
-  activityCard: ActivityCardNode,
+  activityCard: ActivityCardNode as any,
 };
 
 const edgeTypes: EdgeTypes = {
-  connection: ConnectionEdge,
+  connection: ConnectionEdge as any,
 };
 
-export const CanvasPlanning: React.FC = () => {
+// 内部コンポーネント（useReactFlowを使用するため）
+const CanvasPlanningInner: React.FC = () => {
   const { tripId } = useParams<{ tripId: string }>();
   const navigate = useNavigate();
+  const reactFlowInstance = useReactFlow();
 
   const {
     cards,
@@ -68,11 +72,15 @@ export const CanvasPlanning: React.FC = () => {
     reset,
   } = useCanvasStore();
 
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  // ビューポートの状態を保持
+  const viewportRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<CanvasActivityCard | null>(null);
   const [newCardPosition, setNewCardPosition] = useState<{ x: number; y: number } | null>(null);
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
 
   // Phase 2.4c: プラン案関連のステート
   const [showProposalPanel, setShowProposalPanel] = useState(true);
@@ -85,6 +93,66 @@ export const CanvasPlanning: React.FC = () => {
   // 旅行プラン情報
   const [tripPlan, setTripPlan] = useState<{ startDate?: string; endDate?: string } | null>(null);
 
+  // カード編集ハンドラー
+  const handleEditCard = useCallback((card: CanvasActivityCard) => {
+    setEditingCard(card);
+    setIsDialogOpen(true);
+  }, []);
+
+  // カード削除ハンドラー
+  const handleDeleteCard = useCallback(
+    async (cardId: string) => {
+      if (!tripId) return;
+      try {
+        // 現在のビューポートを保存
+        const currentViewport = reactFlowInstance.getViewport();
+        viewportRef.current = currentViewport;
+
+        await deleteCard(tripId, cardId);
+
+        // ノードを直接削除（再描画なし）
+        setNodes((nds) => nds.filter((node) => node.id !== cardId));
+
+        // ビューポートを復元
+        requestAnimationFrame(() => {
+          if (viewportRef.current) {
+            reactFlowInstance.setViewport(viewportRef.current, { duration: 0 });
+          }
+        });
+      } catch (error) {
+        console.error('カード削除エラー:', error);
+      }
+    },
+    [tripId, deleteCard, setNodes, reactFlowInstance]
+  );
+
+  // 接続削除ハンドラー
+  const handleDeleteConnection = useCallback(
+    async (connectionId: string) => {
+      if (!tripId) return;
+      try {
+        // 現在のビューポートを保存
+        const currentViewport = reactFlowInstance.getViewport();
+        viewportRef.current = currentViewport;
+
+        await deleteConnection(tripId, connectionId);
+
+        // エッジを直接削除
+        setEdges((eds) => eds.filter((edge) => edge.id !== connectionId));
+
+        // ビューポートを復元
+        requestAnimationFrame(() => {
+          if (viewportRef.current) {
+            reactFlowInstance.setViewport(viewportRef.current, { duration: 0 });
+          }
+        });
+      } catch (error) {
+        console.error('接続削除エラー:', error);
+      }
+    },
+    [tripId, deleteConnection, setEdges, reactFlowInstance]
+  );
+
   // データ読み込み
   useEffect(() => {
     if (!tripId) {
@@ -92,9 +160,14 @@ export const CanvasPlanning: React.FC = () => {
       return;
     }
 
-    loadAllData(tripId).catch((err) => {
-      console.error('キャンバスデータの読み込みエラー:', err);
-    });
+    loadAllData(tripId)
+      .then(() => {
+        // データ読み込み完了後、初回ノードを設定
+        // この時点でcardsが更新されているが、useEffectは依存配列からcardsを削除したので再実行されない
+      })
+      .catch((err) => {
+        console.error('キャンバスデータの読み込みエラー:', err);
+      });
 
     // 旅行プラン情報を取得
     axios
@@ -120,75 +193,57 @@ export const CanvasPlanning: React.FC = () => {
     return () => {
       reset();
     };
-  }, [tripId, navigate, loadAllData, reset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripId]);
 
-  // カードをReact Flowのノードに変換
+  // カードをReact Flowのノードに変換（初回読み込み時のみ）
+  // cardsが読み込まれた時、かつnodesが空の場合のみ実行
+  // その後のカード作成・削除は直接setNodesで管理するため、このuseEffectは再実行されない
   useEffect(() => {
-    const flowNodes: Node[] = cards.map((card) => ({
-      id: card.id,
-      type: 'activityCard',
-      position: { x: card.positionX, y: card.positionY },
-      data: {
-        card,
-        onEdit: handleEditCard,
-        onDelete: handleDeleteCard,
-      },
-    }));
-    setNodes(flowNodes);
-  }, [cards, setNodes]);
+    if (cards.length > 0 && nodes.length === 0) {
+      // nodesが空で、cardsにデータがある場合のみ初期化
+      const flowNodes: Node[] = cards.map((card) => ({
+        id: card.id,
+        type: 'activityCard',
+        position: { x: card.positionX, y: card.positionY },
+        data: {
+          card,
+          onEdit: handleEditCard,
+          onDelete: handleDeleteCard,
+        },
+      }));
+      setNodes(flowNodes);
+    }
+    // cardsが変わった時に実行されるが、nodes.length > 0 になった後は条件に合わないため実行されない
+    // カード作成時も、既にnodes.length > 0 のため、この条件には入らない
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cards.length]);
 
-  // 接続をReact Flowのエッジに変換
+  // 接続をReact Flowのエッジに変換（初回読み込み時のみ）
+  // connections.lengthを依存配列にすることで、初回読み込み時のみ実行
+  // その後の接続作成・削除は直接setEdgesで管理
   useEffect(() => {
-    const flowEdges: Edge[] = connections.map((conn) => ({
-      id: conn.id,
-      source: conn.fromCardId,
-      target: conn.toCardId,
-      type: 'connection',
-      data: {
-        connection: conn,
-        onDelete: handleDeleteConnection,
-      },
-      animated: false,
-      markerEnd: {
-        type: 'arrowclosed',
-        width: 20,
-        height: 20,
-      },
-    }));
-    setEdges(flowEdges);
-  }, [connections, setEdges]);
-
-  // カード編集ハンドラー
-  const handleEditCard = useCallback((card: CanvasActivityCard) => {
-    setEditingCard(card);
-    setIsDialogOpen(true);
-  }, []);
-
-  // カード削除ハンドラー
-  const handleDeleteCard = useCallback(
-    async (cardId: string) => {
-      if (!tripId) return;
-      try {
-        await deleteCard(tripId, cardId);
-      } catch (error) {
-        console.error('カード削除エラー:', error);
-      }
-    },
-    [tripId, deleteCard]
-  );
-
-  // 接続削除ハンドラー
-  const handleDeleteConnection = useCallback(
-    async (connectionId: string) => {
-      if (!tripId) return;
-      try {
-        await deleteConnection(tripId, connectionId);
-      } catch (error) {
-        console.error('接続削除エラー:', error);
-      }
-    },
-    [tripId, deleteConnection]
-  );
+    if (connections.length > 0 && edges.length === 0) {
+      const flowEdges: Edge[] = connections.map((conn) => ({
+        id: conn.id,
+        source: conn.fromCardId,
+        target: conn.toCardId,
+        type: 'connection',
+        data: {
+          connection: conn,
+          onDelete: handleDeleteConnection,
+        },
+        animated: false,
+        markerEnd: {
+          type: 'arrowclosed',
+          width: 20,
+          height: 20,
+        },
+      }));
+      setEdges(flowEdges);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connections.length]);
 
   // 新しいカード作成（キャンバスダブルクリック）
   const handleCanvasDoubleClick = useCallback(
@@ -222,9 +277,52 @@ export const CanvasPlanning: React.FC = () => {
         if (editingCard) {
           // 既存カードの更新
           await updateCard(tripId, editingCard.id, data);
+
+          // 既存ノードのデータを更新（再描画なし）
+          setNodes((nds) =>
+            nds.map((node) =>
+              node.id === editingCard.id
+                ? {
+                    ...node,
+                    data: {
+                      ...node.data,
+                      card: {
+                        ...editingCard,
+                        ...data,
+                      },
+                    },
+                  }
+                : node
+            )
+          );
         } else {
           // 新規カード作成
-          await createCard(tripId, data);
+          // 現在のビューポートを保存
+          const currentViewport = reactFlowInstance.getViewport();
+          viewportRef.current = currentViewport;
+
+          const newCard = await createCard(tripId, data);
+
+          // 新しいノードを直接追加（再描画なし）
+          const newNode: Node = {
+            id: newCard.id,
+            type: 'activityCard',
+            position: { x: newCard.positionX, y: newCard.positionY },
+            data: {
+              card: newCard,
+              onEdit: handleEditCard,
+              onDelete: handleDeleteCard,
+            },
+          };
+
+          setNodes((nds) => [...nds, newNode]);
+
+          // ビューポートを復元（画面を動かさない）
+          requestAnimationFrame(() => {
+            if (viewportRef.current) {
+              reactFlowInstance.setViewport(viewportRef.current, { duration: 0 });
+            }
+          });
         }
         setIsDialogOpen(false);
         setEditingCard(null);
@@ -234,7 +332,7 @@ export const CanvasPlanning: React.FC = () => {
         throw error;
       }
     },
-    [tripId, editingCard, createCard, updateCard]
+    [tripId, editingCard, createCard, updateCard, reactFlowInstance, setNodes, handleEditCard, handleDeleteCard]
   );
 
   // ノード移動ハンドラー（ドラッグ終了時）
@@ -258,26 +356,85 @@ export const CanvasPlanning: React.FC = () => {
 
   // 接続作成ハンドラー
   const handleConnect: OnConnect = useCallback(
-    (connection: Connection) => {
+    async (connection: Connection) => {
       if (!tripId || !connection.source || !connection.target) return;
 
-      createConnection(tripId, {
-        fromCardId: connection.source,
-        toCardId: connection.target,
-      }).catch((error) => {
+      try {
+        // 現在のビューポートを保存
+        const currentViewport = reactFlowInstance.getViewport();
+        viewportRef.current = currentViewport;
+
+        const newConnection = await createConnection(tripId, {
+          fromCardId: connection.source,
+          toCardId: connection.target,
+        });
+
+        // 新しいエッジを直接追加
+        const newEdge: Edge = {
+          id: newConnection.id,
+          source: newConnection.fromCardId,
+          target: newConnection.toCardId,
+          type: 'connection',
+          data: {
+            connection: newConnection,
+            onDelete: handleDeleteConnection,
+          },
+          animated: false,
+          markerEnd: {
+            type: 'arrowclosed',
+            width: 20,
+            height: 20,
+          },
+        };
+
+        setEdges((eds) => [...eds, newEdge]);
+
+        // ビューポートを復元
+        requestAnimationFrame(() => {
+          if (viewportRef.current) {
+            reactFlowInstance.setViewport(viewportRef.current, { duration: 0 });
+          }
+        });
+      } catch (error) {
         console.error('接続作成エラー:', error);
         alert('接続の作成に失敗しました');
-      });
+      }
     },
-    [tripId, createConnection]
+    [tripId, createConnection, setEdges, handleDeleteConnection, reactFlowInstance]
   );
 
   // 新規カードボタンクリック
   const handleNewCardClick = useCallback(() => {
-    setNewCardPosition({ x: 100, y: 100 });
+    // キャンバスエリアの中央座標を計算（プラン案パネルの幅を考慮）
+    if (reactFlowWrapper.current) {
+      const bounds = reactFlowWrapper.current.getBoundingClientRect();
+
+      // プラン案パネルが表示されている場合、その幅を考慮
+      // プラン案パネルは w-96 = 384px
+      const proposalPanelWidth = showProposalPanel ? 384 : 0;
+
+      // 実際のキャンバス表示エリアの幅
+      const visibleCanvasWidth = bounds.width - proposalPanelWidth;
+
+      // 実際のキャンバス表示エリアの中央
+      const centerX = visibleCanvasWidth / 2;
+      const centerY = bounds.height / 2;
+
+      // ReactFlowのprojectメソッドを使用してスクリーン座標をフロー座標に変換
+      const position = reactFlowInstance.screenToFlowPosition({
+        x: centerX,
+        y: centerY,
+      });
+
+      setNewCardPosition(position);
+    } else {
+      // フォールバック: 固定座標
+      setNewCardPosition({ x: 400, y: 300 });
+    }
+
     setEditingCard(null);
     setIsDialogOpen(true);
-  }, []);
+  }, [reactFlowInstance, showProposalPanel]);
 
   // Phase 2.4c: プラン案関連のハンドラー
   const handleDetectProposals = useCallback(async () => {
@@ -423,7 +580,7 @@ export const CanvasPlanning: React.FC = () => {
       {/* キャンバスエリア + プラン案パネル */}
       <main className="flex-1 flex overflow-hidden">
         {/* キャンバス */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative" ref={reactFlowWrapper}>
           <div className="h-full" onDoubleClick={handleCanvasDoubleClick}>
           <ReactFlow
             nodes={nodes}
@@ -434,12 +591,12 @@ export const CanvasPlanning: React.FC = () => {
             onNodeDragStop={handleNodeDragStop}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
-            fitView
             snapToGrid
             snapGrid={[15, 15]}
-            defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
             minZoom={0.2}
             maxZoom={2}
+            fitView={false}
+            preventScrolling={false}
           >
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
             <Controls showInteractive={false} />
@@ -545,5 +702,14 @@ export const CanvasPlanning: React.FC = () => {
         onEditDates={handleEditDatesForOfficial}
       />
     </div>
+  );
+};
+
+// 外部コンポーネント（ReactFlowProviderでラップ）
+export const CanvasPlanning: React.FC = () => {
+  return (
+    <ReactFlowProvider>
+      <CanvasPlanningInner />
+    </ReactFlowProvider>
   );
 };

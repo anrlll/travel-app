@@ -94,10 +94,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const newCard = await canvasService.createCard(tripId, data);
-      set((state) => ({
-        cards: [...state.cards, newCard],
-        isLoading: false,
-      }));
+      // UI側で直接nodesを管理するため、Storeのcards配列は更新しない
+      // これにより、useEffectのトリガーを防ぎ、ビューポートのリセットを回避
+      set({ isLoading: false });
       return newCard;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'カードの作成に失敗しました';
@@ -110,12 +109,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const updatedCard = await canvasService.updateCard(tripId, cardId, data);
-      set((state) => ({
-        cards: state.cards.map((card) =>
-          card.id === cardId ? updatedCard : card
-        ),
-        isLoading: false,
-      }));
+      // UI側で直接nodesを管理するため、Storeのcards配列は更新しない
+      set({ isLoading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'カードの更新に失敗しました';
       set({ error: errorMessage, isLoading: false });
@@ -153,8 +148,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await canvasService.deleteCard(tripId, cardId);
+      // UI側で直接nodesを管理するため、Storeのcards配列は更新しない
       set((state) => ({
-        cards: state.cards.filter((card) => card.id !== cardId),
         selectedCardId: state.selectedCardId === cardId ? null : state.selectedCardId,
         isLoading: false,
       }));
@@ -189,10 +184,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const newConnection = await canvasService.createConnection(tripId, data);
-      set((state) => ({
-        connections: [...state.connections, newConnection],
-        isLoading: false,
-      }));
+      // UI側で直接edgesを管理するため、Storeのconnections配列は更新しない
+      set({ isLoading: false });
       return newConnection;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '接続の作成に失敗しました';
@@ -222,10 +215,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await canvasService.deleteConnection(tripId, connectionId);
-      set((state) => ({
-        connections: state.connections.filter((conn) => conn.id !== connectionId),
-        isLoading: false,
-      }));
+      // UI側で直接edgesを管理するため、Storeのconnections配列は更新しない
+      set({ isLoading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '接続の削除に失敗しました';
       set({ error: errorMessage, isLoading: false });
