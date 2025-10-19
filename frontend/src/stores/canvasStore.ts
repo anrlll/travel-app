@@ -50,6 +50,15 @@ interface CanvasState {
   deleteProposal: (tripId: string, proposalId: string) => Promise<void>;
   selectProposal: (proposalId: string | null) => void;
 
+  // Phase 2.4c: プラン案自動検出と日程管理
+  detectProposals: (tripId: string) => Promise<void>;
+  assignSchedule: (
+    tripId: string,
+    proposalId: string,
+    schedule: Array<{ cardId: string; dayNumber: number; orderInDay: number }>
+  ) => Promise<void>;
+  selectOfficialProposal: (tripId: string, proposalId: string) => Promise<void>;
+
   // 初期化
   loadAllData: (tripId: string) => Promise<void>;
   reset: () => void;
@@ -291,6 +300,55 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   selectProposal: (proposalId: string | null) => {
     set({ selectedProposalId: proposalId });
+  },
+
+  // ========================================
+  // Phase 2.4c: プラン案自動検出と日程管理
+  // ========================================
+
+  detectProposals: async (tripId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const proposals = await canvasService.detectProposals(tripId);
+      set({ proposals, isLoading: false });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'プラン案の検出に失敗しました';
+      set({ error: errorMessage, isLoading: false });
+      throw error;
+    }
+  },
+
+  assignSchedule: async (
+    tripId: string,
+    proposalId: string,
+    schedule: Array<{ cardId: string; dayNumber: number; orderInDay: number }>
+  ) => {
+    set({ isLoading: true, error: null });
+    try {
+      await canvasService.assignSchedule(tripId, proposalId, schedule);
+      // プラン案を再読み込み
+      const proposals = await canvasService.getProposals(tripId);
+      set({ proposals, isLoading: false });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '日程の割り当てに失敗しました';
+      set({ error: errorMessage, isLoading: false });
+      throw error;
+    }
+  },
+
+  selectOfficialProposal: async (tripId: string, proposalId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await canvasService.selectOfficialProposal(tripId, proposalId);
+
+      // プラン案リストを再取得（isOfficialフラグが更新されている）
+      const proposals = await canvasService.getProposals(tripId);
+      set({ proposals, isLoading: false });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '正式プラン設定に失敗しました';
+      set({ error: errorMessage, isLoading: false });
+      throw error;
+    }
   },
 
   // ========================================

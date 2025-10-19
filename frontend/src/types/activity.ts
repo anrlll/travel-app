@@ -37,6 +37,7 @@ export interface Activity {
   actualCost?: number;
   notes?: string;
   isCompleted: boolean;
+  isFromCanvas: boolean; // キャンバスモードから作成されたアクティビティ
   createdAt: string;
   updatedAt: string;
 }

@@ -137,8 +137,7 @@ export interface TripPlanProposal {
   name: string;
   color: string; // HEXカラーコード
   isOfficial: boolean;
-  startDate?: string;
-  endDate?: string;
+  proposalDate?: string; // ISO 8601 - このプラン案が適用される日付（1日単位）
   totalBudget?: number;
   totalDistanceKm?: number;
   activityCount?: number;
@@ -152,16 +151,14 @@ export interface TripPlanProposal {
 export interface CreateProposalData {
   name: string;
   color: string;
-  startDate?: string;
-  endDate?: string;
+  proposalDate?: string; // ISO 8601
 }
 
 // プラン案更新データ
 export interface UpdateProposalData {
   name?: string;
   color?: string;
-  startDate?: string;
-  endDate?: string;
+  proposalDate?: string; // ISO 8601
 }
 
 // プラン案のアクティビティ
@@ -174,6 +171,25 @@ export interface ProposalActivity {
   createdAt: string;
   updatedAt: string;
   card?: CanvasActivityCard;
+}
+
+// 日程割り当てデータ (Phase 2.4c)
+export interface ScheduleAssignmentData {
+  cardId: string;
+  dayNumber: number;
+  orderInDay: number;
+}
+
+// プラン案比較メトリクス (Phase 2.4c)
+export interface ProposalMetrics {
+  id: string;
+  name: string;
+  color: string;
+  isOfficial: boolean;
+  totalBudget: number;
+  activityCount: number;
+  totalDistanceKm: number;
+  proposalDate: string | null; // このプラン案が適用される日付
 }
 
 // API レスポンス型

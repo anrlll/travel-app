@@ -26,7 +26,12 @@ import { useCanvasStore } from '../stores/canvasStore';
 import { ActivityCardNode } from '../components/canvas/ActivityCardNode';
 import { ConnectionEdge } from '../components/canvas/ConnectionEdge';
 import { CardEditDialog } from '../components/canvas/CardEditDialog';
-import type { CanvasActivityCard, CreateCardData } from '../types/canvas';
+import { ProposalList } from '../components/canvas/ProposalList';
+import { ProposalEditDialog } from '../components/canvas/ProposalEditDialog';
+import { ProposalComparison } from '../components/canvas/ProposalComparison';
+import { OfficialPlanSelectionDialog } from '../components/canvas/OfficialPlanSelectionDialog';
+import type { CanvasActivityCard, CreateCardData, TripPlanProposal } from '../types/canvas';
+import axios from '../lib/axios';
 
 // カスタムノード・エッジタイプの定義
 const nodeTypes: NodeTypes = {
@@ -44,6 +49,8 @@ export const CanvasPlanning: React.FC = () => {
   const {
     cards,
     connections,
+    proposals,
+    selectedProposalId,
     isLoading,
     error,
     loadAllData,
@@ -53,6 +60,11 @@ export const CanvasPlanning: React.FC = () => {
     deleteCard,
     createConnection,
     deleteConnection,
+    detectProposals,
+    selectProposal,
+    updateProposal,
+    deleteProposal,
+    selectOfficialProposal,
     reset,
   } = useCanvasStore();
 
@@ -61,6 +73,17 @@ export const CanvasPlanning: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<CanvasActivityCard | null>(null);
   const [newCardPosition, setNewCardPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // Phase 2.4c: プラン案関連のステート
+  const [showProposalPanel, setShowProposalPanel] = useState(true);
+  const [editingProposal, setEditingProposal] = useState<TripPlanProposal | null>(null);
+  const [isProposalEditOpen, setIsProposalEditOpen] = useState(false);
+  const [isComparisonOpen, setIsComparisonOpen] = useState(false);
+  const [selectingOfficialProposal, setSelectingOfficialProposal] = useState<TripPlanProposal | null>(null);
+  const [isOfficialSelectionOpen, setIsOfficialSelectionOpen] = useState(false);
+
+  // 旅行プラン情報
+  const [tripPlan, setTripPlan] = useState<{ startDate?: string; endDate?: string } | null>(null);
 
   // データ読み込み
   useEffect(() => {
@@ -72,6 +95,27 @@ export const CanvasPlanning: React.FC = () => {
     loadAllData(tripId).catch((err) => {
       console.error('キャンバスデータの読み込みエラー:', err);
     });
+
+    // 旅行プラン情報を取得
+    axios
+      .get(`/api/v1/trips/${tripId}`)
+      .then((response) => {
+        console.log('旅行プラン情報取得:', response.data);
+        if (response.data.success && response.data.data) {
+          const tripData = response.data.data;
+          console.log('旅行プラン日程:', {
+            startDate: tripData.startDate,
+            endDate: tripData.endDate,
+          });
+          setTripPlan({
+            startDate: tripData.startDate,
+            endDate: tripData.endDate,
+          });
+        }
+      })
+      .catch((err) => {
+        console.error('旅行プラン情報の読み込みエラー:', err);
+      });
 
     return () => {
       reset();
@@ -235,6 +279,76 @@ export const CanvasPlanning: React.FC = () => {
     setIsDialogOpen(true);
   }, []);
 
+  // Phase 2.4c: プラン案関連のハンドラー
+  const handleDetectProposals = useCallback(async () => {
+    if (!tripId) return;
+    try {
+      await detectProposals(tripId);
+    } catch (error) {
+      console.error('プラン案検出エラー:', error);
+      alert('プラン案の検出に失敗しました');
+    }
+  }, [tripId, detectProposals]);
+
+  const handleEditProposal = useCallback((proposal: TripPlanProposal) => {
+    setEditingProposal(proposal);
+    setIsProposalEditOpen(true);
+  }, []);
+
+  const handleSaveProposal = useCallback(
+    async (data: { name: string; color: string; proposalDate?: string }) => {
+      if (!tripId || !editingProposal) return;
+      try {
+        await updateProposal(tripId, editingProposal.id, data);
+        setIsProposalEditOpen(false);
+        setEditingProposal(null);
+      } catch (error) {
+        console.error('プラン案更新エラー:', error);
+        alert('プラン案の更新に失敗しました');
+      }
+    },
+    [tripId, editingProposal, updateProposal]
+  );
+
+  const handleDeleteProposal = useCallback(
+    async (proposalId: string) => {
+      if (!tripId) return;
+      try {
+        await deleteProposal(tripId, proposalId);
+      } catch (error) {
+        console.error('プラン案削除エラー:', error);
+        alert('プラン案の削除に失敗しました');
+      }
+    },
+    [tripId, deleteProposal]
+  );
+
+  const handleSelectOfficialProposal = useCallback((proposal: TripPlanProposal) => {
+    setSelectingOfficialProposal(proposal);
+    setIsOfficialSelectionOpen(true);
+  }, []);
+
+  const handleConfirmOfficialSelection = useCallback(async () => {
+    if (!tripId || !selectingOfficialProposal) return;
+    try {
+      await selectOfficialProposal(tripId, selectingOfficialProposal.id);
+      setIsOfficialSelectionOpen(false);
+      setSelectingOfficialProposal(null);
+      alert(`✅ ${selectingOfficialProposal.name}を正式プランに設定しました`);
+    } catch (error) {
+      console.error('正式プラン設定エラー:', error);
+      alert('正式プラン設定に失敗しました');
+    }
+  }, [tripId, selectingOfficialProposal, selectOfficialProposal]);
+
+  const handleEditDatesForOfficial = useCallback(() => {
+    if (selectingOfficialProposal) {
+      setIsOfficialSelectionOpen(false);
+      setEditingProposal(selectingOfficialProposal);
+      setIsProposalEditOpen(true);
+    }
+  }, [selectingOfficialProposal]);
+
   if (!tripId) {
     return null;
   }
@@ -283,8 +397,19 @@ export const CanvasPlanning: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-600">
-            カード: {cards.length} | 接続: {connections.length}
+            カード: {cards.length} | 接続: {connections.length} | プラン案: {proposals.length}
           </span>
+          <button
+            onClick={() => setShowProposalPanel(!showProposalPanel)}
+            className={`px-4 py-2 rounded-md flex items-center gap-2 ${
+              showProposalPanel
+                ? 'bg-purple-600 text-white hover:bg-purple-700'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            <span>📊</span>
+            <span>プラン案パネル</span>
+          </button>
           <button
             onClick={handleNewCardClick}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
@@ -295,9 +420,11 @@ export const CanvasPlanning: React.FC = () => {
         </div>
       </header>
 
-      {/* キャンバスエリア */}
-      <main className="flex-1 relative">
-        <div className="h-full" onDoubleClick={handleCanvasDoubleClick}>
+      {/* キャンバスエリア + プラン案パネル */}
+      <main className="flex-1 flex overflow-hidden">
+        {/* キャンバス */}
+        <div className="flex-1 relative">
+          <div className="h-full" onDoubleClick={handleCanvasDoubleClick}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -354,6 +481,23 @@ export const CanvasPlanning: React.FC = () => {
             </div>
           </div>
         )}
+        </div>
+
+        {/* プラン案パネル (Phase 2.4c) */}
+        {showProposalPanel && (
+          <div className="w-96 bg-gray-50 border-l border-gray-200 overflow-hidden">
+            <ProposalList
+              proposals={proposals}
+              selectedProposalId={selectedProposalId}
+              onSelectProposal={selectProposal}
+              onEditProposal={handleEditProposal}
+              onDeleteProposal={handleDeleteProposal}
+              onCompareProposals={() => setIsComparisonOpen(true)}
+              onDetectProposals={handleDetectProposals}
+              onSelectOfficialProposal={handleSelectOfficialProposal}
+            />
+          </div>
+        )}
       </main>
 
       {/* カード編集ダイアログ */}
@@ -367,6 +511,38 @@ export const CanvasPlanning: React.FC = () => {
           setEditingCard(null);
           setNewCardPosition(null);
         }}
+      />
+
+      {/* プラン案編集ダイアログ (Phase 2.4c) */}
+      <ProposalEditDialog
+        proposal={editingProposal}
+        tripStartDate={tripPlan?.startDate}
+        tripEndDate={tripPlan?.endDate}
+        isOpen={isProposalEditOpen}
+        onClose={() => {
+          setIsProposalEditOpen(false);
+          setEditingProposal(null);
+        }}
+        onSave={handleSaveProposal}
+      />
+
+      {/* プラン案比較モーダル (Phase 2.4c) */}
+      <ProposalComparison
+        proposals={proposals}
+        isOpen={isComparisonOpen}
+        onClose={() => setIsComparisonOpen(false)}
+      />
+
+      {/* 正式プラン選択ダイアログ (Phase 2.4c-4) */}
+      <OfficialPlanSelectionDialog
+        proposal={selectingOfficialProposal}
+        isOpen={isOfficialSelectionOpen}
+        onClose={() => {
+          setIsOfficialSelectionOpen(false);
+          setSelectingOfficialProposal(null);
+        }}
+        onConfirm={handleConfirmOfficialSelection}
+        onEditDates={handleEditDatesForOfficial}
       />
     </div>
   );

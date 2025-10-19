@@ -58,8 +58,7 @@ export interface TripPlanProposal {
   name: string;
   color: string;
   isOfficial: boolean;
-  startDate?: Date;
-  endDate?: Date;
+  proposalDate?: Date; // このプラン案が適用される日付（1日単位）
   totalBudget?: number;
   activityCount?: number;
   totalDistanceKm?: number;
@@ -135,8 +134,7 @@ export const updateConnectionSchema = createConnectionSchema.omit({ fromCardId: 
 export const createProposalSchema = z.object({
   name: z.string().min(1).max(255),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/), // HEXカラー
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
+  proposalDate: z.string().optional().or(z.literal('')), // このプラン案が適用される日付（YYYY-MM-DDまたはISO 8601形式）
 });
 
 // プラン案更新スキーマ

@@ -77,6 +77,13 @@ function ActivityCard({
           >
             {activity.title}
           </h4>
+          {/* キャンバス作成バッジ */}
+          {activity.isFromCanvas && (
+            <div className="mt-1 flex items-center gap-1 text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded-md px-2 py-1 w-fit">
+              <span>🖼️</span>
+              <span>キャンバスモードで作成</span>
+            </div>
+          )}
         </div>
         <span
           className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -201,26 +208,34 @@ function ActivityCard({
       {/* アクションボタン */}
       {canEdit && (
         <div className="mt-4 pt-3 border-t border-gray-200 space-y-2">
-          {/* 順序変更ボタン */}
+          {/* キャンバス作成の場合は警告メッセージを表示 */}
+          {activity.isFromCanvas && (
+            <div className="text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded px-2 py-1.5 flex items-start gap-2">
+              <span className="text-sm">ℹ️</span>
+              <span>このアクティビティはキャンバスモードで作成されたため、順序の入れ替えと日程変更はできません。</span>
+            </div>
+          )}
+
+          {/* 順序変更ボタン - キャンバス作成の場合は無効化 */}
           {(onMoveUp || onMoveDown) && (
             <div className="flex gap-2">
               <button
                 onClick={() => onMoveUp?.(activity.id)}
-                disabled={isFirst}
+                disabled={isFirst || activity.isFromCanvas}
                 className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="上に移動"
+                title={activity.isFromCanvas ? 'キャンバス作成のため移動不可' : '上に移動'}
               >
                 ↑
               </button>
               <button
                 onClick={() => onMoveDown?.(activity.id)}
-                disabled={isLast}
+                disabled={isLast || activity.isFromCanvas}
                 className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="下に移動"
+                title={activity.isFromCanvas ? 'キャンバス作成のため移動不可' : '下に移動'}
               >
                 ↓
               </button>
-              {/* 日移動ドロップダウン */}
+              {/* 日移動ドロップダウン - キャンバス作成の場合は無効化 */}
               {onMoveToDay && availableDays && availableDays.length > 1 && (
                 <select
                   value={activity.dayNumber}
@@ -230,7 +245,9 @@ function ActivityCard({
                       onMoveToDay(activity.id, newDay);
                     }
                   }}
-                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={activity.isFromCanvas}
+                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={activity.isFromCanvas ? 'キャンバス作成のため日程変更不可' : '日程を移動'}
                 >
                   {availableDays.map((day) => (
                     <option key={day} value={day}>

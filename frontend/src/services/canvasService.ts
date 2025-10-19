@@ -291,3 +291,58 @@ export async function deleteProposal(
     throw new Error(response.data.message || 'プラン案の削除に失敗しました');
   }
 }
+
+// ========================================
+// Phase 2.4c: プラン案自動検出と日程管理
+// ========================================
+
+/**
+ * プラン案を自動検出
+ */
+export async function detectProposals(tripId: string): Promise<TripPlanProposal[]> {
+  const response = await axios.post<ApiResponse<TripPlanProposal[]>>(
+    `/api/v1/trips/${tripId}/canvas/proposals/detect`
+  );
+
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.message || 'プラン案の検出に失敗しました');
+  }
+
+  return response.data.data;
+}
+
+/**
+ * 日程を割り当て
+ */
+export async function assignSchedule(
+  tripId: string,
+  proposalId: string,
+  schedule: Array<{ cardId: string; dayNumber: number; orderInDay: number }>
+): Promise<void> {
+  const response = await axios.post<ApiResponse<void>>(
+    `/api/v1/trips/${tripId}/canvas/proposals/${proposalId}/schedule`,
+    schedule
+  );
+
+  if (!response.data.success) {
+    throw new Error(response.data.message || '日程の割り当てに失敗しました');
+  }
+}
+
+/**
+ * プラン案を正式プランとして選択（キャンバス→従来型構造に変換）
+ */
+export async function selectOfficialProposal(
+  tripId: string,
+  proposalId: string
+): Promise<TripPlanProposal> {
+  const response = await axios.post<ApiResponse<TripPlanProposal>>(
+    `/api/v1/trips/${tripId}/canvas/proposals/${proposalId}/select-official`
+  );
+
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.message || '正式プラン設定に失敗しました');
+  }
+
+  return response.data.data;
+}

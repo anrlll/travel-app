@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import * as canvasService from '../services/canvas.service.js';
+import * as proposalConversionService from '../services/proposal-conversion.service.js';
 import {
   createCardSchema,
   updateCardSchema,
@@ -341,6 +342,96 @@ export async function canvasRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({
           success: false,
           message: error instanceof Error ? error.message : 'プラン案の削除に失敗しました',
+        });
+      }
+    }
+  );
+
+  // ========================================
+  // Phase 2.4c: プラン案自動検出と日程管理
+  // ========================================
+
+  // プラン案の自動検出
+  fastify.post(
+    '/trips/:tripId/canvas/proposals/detect',
+    { preHandler: authMiddleware },
+    async (request, reply) => {
+      try {
+        const { tripId } = request.params as { tripId: string };
+        const userId = request.user!.userId;
+
+        const proposals = await canvasService.detectProposals(tripId, userId);
+
+        return reply.status(200).send({
+          success: true,
+          data: proposals,
+          message: `${proposals.length}件のプラン案を検出しました`,
+        });
+      } catch (error) {
+        request.log.error(error);
+        return reply.status(500).send({
+          success: false,
+          message: error instanceof Error ? error.message : 'プラン案の検出に失敗しました',
+        });
+      }
+    }
+  );
+
+  // 日程割り当て
+  fastify.post(
+    '/trips/:tripId/canvas/proposals/:proposalId/schedule',
+    { preHandler: authMiddleware },
+    async (request, reply) => {
+      try {
+        const { tripId, proposalId } = request.params as { tripId: string; proposalId: string };
+        const userId = request.user!.userId;
+        const schedule = request.body as Array<{
+          cardId: string;
+          dayNumber: number;
+          orderInDay: number;
+        }>;
+
+        await canvasService.assignSchedule(tripId, proposalId, userId, schedule);
+
+        return reply.status(200).send({
+          success: true,
+          message: '日程を割り当てました',
+        });
+      } catch (error) {
+        request.log.error(error);
+        return reply.status(400).send({
+          success: false,
+          message: error instanceof Error ? error.message : '日程の割り当てに失敗しました',
+        });
+      }
+    }
+  );
+
+  // 正式プラン選択（キャンバス→従来型構造に変換）
+  fastify.post(
+    '/trips/:tripId/canvas/proposals/:proposalId/select-official',
+    { preHandler: authMiddleware },
+    async (request, reply) => {
+      try {
+        const { tripId, proposalId } = request.params as { tripId: string; proposalId: string };
+        const userId = request.user!.userId;
+
+        const proposal = await proposalConversionService.selectOfficialProposal(
+          tripId,
+          proposalId,
+          userId
+        );
+
+        return reply.status(200).send({
+          success: true,
+          data: proposal,
+          message: '正式プランに設定しました',
+        });
+      } catch (error) {
+        request.log.error(error);
+        return reply.status(400).send({
+          success: false,
+          message: error instanceof Error ? error.message : '正式プラン設定に失敗しました',
         });
       }
     }

@@ -139,16 +139,20 @@ model TripPlanActivity {
   actualCost        Decimal?         @map("actual_cost") @db.Decimal(10, 2)
   notes             String?
   isCompleted       Boolean          @default(false) @map("is_completed")
+  isFromCanvas      Boolean          @default(false) @map("is_from_canvas") // キャンバスモードから作成されたアクティビティ
+  canvasCardId      String?          @map("canvas_card_id") // キャンバスカードへの参照（双方向同期用）
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
 
   // リレーション
   tripPlan          TripPlan         @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
+  canvasCard        CanvasActivityCard? @relation(fields: [canvasCardId], references: [id], onDelete: SetNull)
   participants      TripPlanActivityParticipant[]
   transports        TripPlanActivityTransport[]
 
   @@index([tripPlanId])
   @@index([dayNumber])
+  @@index([canvasCardId])
   @@map("trip_plan_activities")
 }
 
@@ -217,6 +221,7 @@ model CanvasActivityCard {
   connectionsFrom CardConnection[] @relation("FromCard")
   connectionsTo   CardConnection[] @relation("ToCard")
   proposalActivities ProposalActivity[]
+  tripPlanActivities TripPlanActivity[] // 双方向同期用
 
   @@index([tripPlanId])
   @@index([positionX, positionY])
@@ -264,9 +269,8 @@ model TripPlanProposal {
   color           String   // HEX色コード (#3B82F6, #10B981, etc.)
   isOfficial      Boolean  @default(false) @map("is_official")
 
-  // 日程情報
-  startDate       DateTime? @map("start_date")
-  endDate         DateTime? @map("end_date")
+  // 日程情報（1日単位のプラン案）
+  proposalDate    DateTime? @map("proposal_date") // このプラン案が適用される日付
 
   // プラン案のメタ情報（自動計算でキャッシュ）
   totalBudget     Decimal? @map("total_budget") @db.Decimal(10, 2)
@@ -283,6 +287,7 @@ model TripPlanProposal {
 
   @@index([tripPlanId])
   @@index([isOfficial])
+  @@index([proposalDate])
   @@map("trip_plan_proposals")
 }
 

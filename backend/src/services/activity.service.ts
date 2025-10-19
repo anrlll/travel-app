@@ -229,6 +229,59 @@ export async function updateActivity(
     data: updateData,
   });
 
+  // キャンバスカードとの同期: isFromCanvasがtrueかつcanvasCardIdが存在する場合
+  if (activity.isFromCanvas && activity.canvasCardId) {
+    // キャンバスカードも同期更新
+    const canvasUpdateData: any = {};
+
+    // タイトル
+    if (input.title !== undefined) canvasUpdateData.title = input.title;
+
+    // カテゴリ（activityType）
+    if (input.category !== undefined) canvasUpdateData.activityType = input.category;
+
+    // 場所
+    if (input.location !== undefined) canvasUpdateData.location = input.location;
+
+    // カスタムロケーション
+    if (input.customLocation !== undefined) canvasUpdateData.customLocation = input.customLocation;
+
+    // 開始・終了時刻（DateTime → HH:mm形式）
+    if (input.startTime !== undefined) {
+      if (input.startTime === null) {
+        canvasUpdateData.startTime = null;
+      } else {
+        const startDate = new Date(input.startTime);
+        canvasUpdateData.startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
+      }
+    }
+    if (input.endTime !== undefined) {
+      if (input.endTime === null) {
+        canvasUpdateData.endTime = null;
+      } else {
+        const endDate = new Date(input.endTime);
+        canvasUpdateData.endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
+      }
+    }
+
+    // コスト
+    if (input.estimatedCost !== undefined) canvasUpdateData.cost = input.estimatedCost;
+
+    // メモ
+    if (input.notes !== undefined) canvasUpdateData.memo = input.notes;
+
+    // 完了状態
+    if (input.isCompleted !== undefined) canvasUpdateData.isCompleted = input.isCompleted;
+
+    // 更新するフィールドがある場合のみ実行
+    if (Object.keys(canvasUpdateData).length > 0) {
+      await prisma.canvasActivityCard.update({
+        where: { id: activity.canvasCardId },
+        data: canvasUpdateData,
+      });
+    }
+  }
+
   return updatedActivity;
 }
 
