@@ -340,18 +340,17 @@ const CanvasPlanningInner: React.FC = () => {
     (_event: React.MouseEvent, node: Node) => {
       if (!tripId) return;
 
-      const card = cards.find((c) => c.id === node.id);
-      if (card && (card.positionX !== node.position.x || card.positionY !== node.position.y)) {
-        // React Flowの{x, y}をバックエンドの{positionX, positionY}に変換
-        moveCard(tripId, node.id, {
-          positionX: node.position.x,
-          positionY: node.position.y,
-        }).catch((error) => {
-          console.error('カード位置更新エラー:', error);
-        });
-      }
+      // ノードが存在すれば位置を保存（cards配列に依存しない）
+      // 新規作成したカードもStoreのcards配列を更新していないため、
+      // cards配列での検証は不要（むしろ新規カードで失敗する原因）
+      moveCard(tripId, node.id, {
+        positionX: node.position.x,
+        positionY: node.position.y,
+      }).catch((error) => {
+        console.error('カード位置更新エラー:', error);
+      });
     },
-    [tripId, cards, moveCard]
+    [tripId, moveCard]
   );
 
   // 接続作成ハンドラー
@@ -416,8 +415,8 @@ const CanvasPlanningInner: React.FC = () => {
       // 実際のキャンバス表示エリアの幅
       const visibleCanvasWidth = bounds.width - proposalPanelWidth;
 
-      // 実際のキャンバス表示エリアの中央
-      const centerX = visibleCanvasWidth / 2;
+      // 実際のキャンバス表示エリアの中央（パネル幅分をオフセット）
+      const centerX = proposalPanelWidth + visibleCanvasWidth / 2;
       const centerY = bounds.height / 2;
 
       // ReactFlowのprojectメソッドを使用してスクリーン座標をフロー座標に変換
@@ -426,7 +425,18 @@ const CanvasPlanningInner: React.FC = () => {
         y: centerY,
       });
 
-      setNewCardPosition(position);
+      // カードが重ならないようにランダムなオフセットを追加
+      const randomOffset = {
+        x: (Math.random() - 0.5) * 200, // -100 ~ +100
+        y: (Math.random() - 0.5) * 200, // -100 ~ +100
+      };
+
+      const finalPosition = {
+        x: position.x + randomOffset.x,
+        y: position.y + randomOffset.y,
+      };
+
+      setNewCardPosition(finalPosition);
     } else {
       // フォールバック: 固定座標
       setNewCardPosition({ x: 400, y: 300 });
@@ -618,7 +628,7 @@ const CanvasPlanningInner: React.FC = () => {
         </div>
 
         {/* 初回ヒント */}
-        {cards.length === 0 && (
+        {nodes.length === 0 && (
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
             <div className="bg-white rounded-lg shadow-lg p-6 max-w-md">
               <div className="text-4xl mb-3">🗺️</div>
