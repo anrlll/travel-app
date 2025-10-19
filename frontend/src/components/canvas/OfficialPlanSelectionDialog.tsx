@@ -26,15 +26,6 @@ export const OfficialPlanSelectionDialog: React.FC<OfficialPlanSelectionDialogPr
 
   const hasSchedule = !!proposal.proposalDate;
 
-  const formatDate = (dateStr: string | undefined) => {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
   const formatCurrency = (amount: number | undefined) => {
     if (amount === undefined || amount === null) return '未設定';
     return `¥${amount.toLocaleString()}`;

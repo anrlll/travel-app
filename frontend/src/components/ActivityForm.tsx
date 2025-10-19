@@ -62,7 +62,7 @@ interface ActivityFormProps {
 }
 
 function ActivityForm({
-  tripId,
+  tripId: _tripId,
   dayNumber,
   activity,
   tripMembers = [],

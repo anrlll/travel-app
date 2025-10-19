@@ -2,7 +2,7 @@
  * キャンバスプランニングページ - Phase 2.4b: 完全実装
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ReactFlow,
@@ -14,7 +14,6 @@ import {
   Connection,
   useNodesState,
   useEdgesState,
-  addEdge,
   NodeTypes,
   EdgeTypes,
   OnConnect,

@@ -29,15 +29,6 @@ export const ProposalComparison: React.FC<ProposalComparisonProps> = ({
     return `${km.toFixed(1)} km`;
   };
 
-  const calculateDays = (startDate: string | undefined, endDate: string | undefined) => {
-    if (!startDate || !endDate) return '-';
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return `${diffDays + 1}日間`;
-  };
-
   const formatDate = (dateStr: string | undefined) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('ja-JP', {
@@ -114,30 +105,10 @@ export const ProposalComparison: React.FC<ProposalComparisonProps> = ({
               <tbody>
                 {/* 日程 */}
                 <tr className="border-b border-gray-200">
-                  <td className="py-3 px-4 font-medium text-gray-700">📅 日程</td>
+                  <td className="py-3 px-4 font-medium text-gray-700">📅 適用日</td>
                   {proposals.map((proposal) => (
                     <td key={proposal.id} className="py-3 px-4 text-center">
-                      {calculateDays(proposal.startDate, proposal.endDate)}
-                    </td>
-                  ))}
-                </tr>
-
-                {/* 開始日 */}
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <td className="py-3 px-4 font-medium text-gray-700">　└ 開始日</td>
-                  {proposals.map((proposal) => (
-                    <td key={proposal.id} className="py-3 px-4 text-center text-sm">
-                      {formatDate(proposal.startDate)}
-                    </td>
-                  ))}
-                </tr>
-
-                {/* 終了日 */}
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <td className="py-3 px-4 font-medium text-gray-700">　└ 終了日</td>
-                  {proposals.map((proposal) => (
-                    <td key={proposal.id} className="py-3 px-4 text-center text-sm">
-                      {formatDate(proposal.endDate)}
+                      {proposal.proposalDate ? formatDate(proposal.proposalDate) : '未設定'}
                     </td>
                   ))}
                 </tr>
@@ -193,30 +164,6 @@ export const ProposalComparison: React.FC<ProposalComparisonProps> = ({
                   ))}
                 </tr>
 
-                {/* 1日あたりの予算 */}
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <td className="py-3 px-4 font-medium text-gray-700">
-                    　└ 1日あたり予算
-                  </td>
-                  {proposals.map((proposal) => {
-                    const days = proposal.startDate && proposal.endDate
-                      ? Math.ceil(
-                          (new Date(proposal.endDate).getTime() -
-                            new Date(proposal.startDate).getTime()) /
-                            (1000 * 60 * 60 * 24)
-                        ) + 1
-                      : 0;
-                    const perDay =
-                      days > 0 && proposal.totalBudget
-                        ? Math.round(proposal.totalBudget / days)
-                        : undefined;
-                    return (
-                      <td key={proposal.id} className="py-3 px-4 text-center text-sm">
-                        {formatCurrency(perDay)}
-                      </td>
-                    );
-                  })}
-                </tr>
               </tbody>
             </table>
           </div>
