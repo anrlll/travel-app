@@ -87,7 +87,9 @@ model TripPlan {
   tripPlanBudgets   TripPlanBudget[] @relation("TripPlanBudgets")
   expenses          Expense[]
   memories          Memory[]
-  canvasProposals   CanvasProposal[]
+  canvasCards       CanvasActivityCard[]
+  cardConnections   CardConnection[]
+  proposals         TripPlanProposal[]
 
   @@index([userId])
   @@index([status])
@@ -183,19 +185,124 @@ model TripPlanActivityTransport {
 // キャンバスプランニング
 // ========================================
 
-model CanvasProposal {
-  id          String   @id @default(cuid())
-  tripPlanId  String   @map("trip_plan_id")
-  name        String
-  canvasData  Json     @map("canvas_data") // キャンバス全体のJSON
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+model CanvasActivityCard {
+  id              String   @id @default(cuid())
+  tripPlanId      String   @map("trip_plan_id")
+
+  // カードの位置
+  positionX       Decimal  @map("position_x") @db.Decimal(10, 2)
+  positionY       Decimal  @map("position_y") @db.Decimal(10, 2)
+
+  // アクティビティ情報
+  title           String
+  activityType    String   @map("activity_type") // sightseeing, restaurant, accommodation, transport, other
+  location        String?
+  customLocation  Json?    @map("custom_location") // {name, address, latitude, longitude, notes, url}
+  startTime       String?  @map("start_time") // HH:mm形式
+  endTime         String?  @map("end_time")
+  cost            Decimal? @db.Decimal(10, 2)
+  budgetCategory  String?  @map("budget_category") // food, transport, accommodation, sightseeing, other
+  memo            String?
+  participants    Json?    // メンバーID配列
+
+  // カードの状態
+  isCollapsed     Boolean  @default(false) @map("is_collapsed")
+  isCompleted     Boolean  @default(false) @map("is_completed")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   // リレーション
-  tripPlan    TripPlan @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
+  tripPlan        TripPlan @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
+  connectionsFrom CardConnection[] @relation("FromCard")
+  connectionsTo   CardConnection[] @relation("ToCard")
+  proposalActivities ProposalActivity[]
 
   @@index([tripPlanId])
-  @@map("canvas_proposals")
+  @@index([positionX, positionY])
+  @@map("canvas_activity_cards")
+}
+
+model CardConnection {
+  id              String   @id @default(cuid())
+  tripPlanId      String   @map("trip_plan_id")
+  fromCardId      String   @map("from_card_id")
+  toCardId        String   @map("to_card_id")
+
+  // 移動情報
+  transportType   String?  @map("transport_type") // walk, car, train, bus, plane, other
+  durationMinutes Int?     @map("duration_minutes")
+  distanceKm      Decimal? @map("distance_km") @db.Decimal(8, 2)
+  cost            Decimal? @db.Decimal(10, 2)
+  routeData       Json?    @map("route_data")
+
+  // プラン案への割り当て
+  proposalId      String?  @map("proposal_id")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // リレーション
+  tripPlan        TripPlan @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
+  fromCard        CanvasActivityCard @relation("FromCard", fields: [fromCardId], references: [id], onDelete: Cascade)
+  toCard          CanvasActivityCard @relation("ToCard", fields: [toCardId], references: [id], onDelete: Cascade)
+  proposal        TripPlanProposal? @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+
+  @@unique([fromCardId, toCardId])
+  @@index([tripPlanId])
+  @@index([fromCardId])
+  @@index([toCardId])
+  @@index([proposalId])
+  @@map("card_connections")
+}
+
+model TripPlanProposal {
+  id              String   @id @default(cuid())
+  tripPlanId      String   @map("trip_plan_id")
+
+  // プラン案情報
+  name            String
+  color           String   // HEX色コード (#3B82F6, #10B981, etc.)
+  isOfficial      Boolean  @default(false) @map("is_official")
+
+  // 日程情報
+  startDate       DateTime? @map("start_date")
+  endDate         DateTime? @map("end_date")
+
+  // プラン案のメタ情報（自動計算でキャッシュ）
+  totalBudget     Decimal? @map("total_budget") @db.Decimal(10, 2)
+  activityCount   Int?     @map("activity_count")
+  totalDistanceKm Decimal? @map("total_distance_km") @db.Decimal(10, 2)
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // リレーション
+  tripPlan        TripPlan @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
+  activities      ProposalActivity[]
+  connections     CardConnection[]
+
+  @@index([tripPlanId])
+  @@index([isOfficial])
+  @@map("trip_plan_proposals")
+}
+
+model ProposalActivity {
+  id          String   @id @default(cuid())
+  proposalId  String   @map("proposal_id")
+  cardId      String   @map("card_id")
+
+  // 日程割り当て
+  dayNumber   Int?     @map("day_number")
+  orderInDay  Int?     @map("order_in_day")
+
+  // リレーション
+  proposal    TripPlanProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  card        CanvasActivityCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, cardId])
+  @@index([proposalId])
+  @@index([cardId])
+  @@map("proposal_activities")
 }
 
 // ========================================

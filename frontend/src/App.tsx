@@ -8,6 +8,7 @@ import Trips from './pages/Trips';
 import CreateTrip from './pages/CreateTrip';
 import EditTrip from './pages/EditTrip';
 import TripDetail from './pages/TripDetail';
+import { CanvasPlanning } from './pages/CanvasPlanning';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // QueryClientのインスタンス作成
@@ -80,6 +81,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <TripDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/trips/:tripId/canvas"
+            element={
+              <ProtectedRoute>
+                <CanvasPlanning />
               </ProtectedRoute>
             }
           />
