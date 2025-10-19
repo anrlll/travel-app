@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import Button from './Button';
 
 /**
  * ヘッダーコンポーネント
@@ -51,12 +52,12 @@ export default function Header() {
                 </Link>
 
                 {/* ログアウトボタン */}
-                <button
+                <Button
                   onClick={handleLogout}
                   className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
                 >
                   ログアウト
-                </button>
+                </Button>
               </>
             ) : (
               <>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import Button from "../components/Button";
 import { login } from '../services/authService';
 
 /**
@@ -90,13 +91,13 @@ export default function Login() {
           </div>
 
           <div>
-            <button
+            <Button
               type="submit"
               disabled={isLoading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? 'ログイン中...' : 'ログイン'}
-            </button>
+            </Button>
           </div>
 
           <div className="text-center">

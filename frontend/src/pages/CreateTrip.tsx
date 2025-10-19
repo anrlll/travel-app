@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Button from "../components/Button";
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -102,7 +103,7 @@ function CreateTrip() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* ヘッダー */}
         <div className="mb-8">
-          <button
+          <Button
             onClick={() => navigate('/trips')}
             className="text-blue-600 hover:text-blue-700 mb-4 flex items-center"
           >
@@ -110,7 +111,7 @@ function CreateTrip() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             戻る
-          </button>
+          </Button>
           <h1 className="text-3xl font-bold text-gray-900">新しい旅行プランを作成</h1>
         </div>
 
@@ -196,7 +197,7 @@ function CreateTrip() {
                   placeholder="例: 京都"
                 />
                 {fields.length > 1 && (
-                  <button
+                  <Button
                     type="button"
                     onClick={() => remove(index)}
                     className="text-red-600 hover:text-red-700 p-2"
@@ -209,20 +210,20 @@ function CreateTrip() {
                         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                       />
                     </svg>
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
             {errors.destinations && (
               <p className="text-red-500 text-sm mt-1">{errors.destinations.message}</p>
             )}
-            <button
+            <Button
               type="button"
               onClick={() => append({ name: '' })}
               className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
             >
               + 目的地を追加
-            </button>
+            </Button>
           </div>
 
           {/* タグ */}
@@ -264,20 +265,20 @@ function CreateTrip() {
 
           {/* 送信ボタン */}
           <div className="flex justify-end gap-4">
-            <button
+            <Button
               type="button"
               onClick={() => navigate('/trips')}
               className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
             >
               キャンセル
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={isSubmitting}
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:bg-gray-400"
             >
               {isSubmitting ? '作成中...' : '作成'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

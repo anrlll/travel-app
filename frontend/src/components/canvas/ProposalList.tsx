@@ -3,6 +3,7 @@
  */
 
 import React, { useState } from 'react';
+import Button from '../Button';
 import type { TripPlanProposal } from '../../types/canvas';
 
 interface ProposalListProps {
@@ -54,19 +55,19 @@ export const ProposalList: React.FC<ProposalListProps> = ({
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold text-gray-900">📊 プラン案一覧</h2>
         <div className="flex gap-2">
-          <button
+          <Button
             onClick={onDetectProposals}
             className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
           >
             🔍 再検出
-          </button>
+          </Button>
           {proposals.length >= 2 && (
-            <button
+            <Button
               onClick={onCompareProposals}
               className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700"
             >
               📊 比較
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -76,12 +77,12 @@ export const ProposalList: React.FC<ProposalListProps> = ({
         <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
           <div className="text-4xl mb-2">📋</div>
           <p className="text-sm mb-4">プラン案が検出されていません</p>
-          <button
+          <Button
             onClick={onDetectProposals}
             className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
           >
             🔍 プラン案を検出
-          </button>
+          </Button>
         </div>
       )}
 
@@ -121,7 +122,7 @@ export const ProposalList: React.FC<ProposalListProps> = ({
                       </span>
                     )}
                   </div>
-                  <button
+                  <Button
                     onClick={(e) => {
                       e.stopPropagation();
                       setExpandedProposalId(isExpanded ? null : proposal.id);
@@ -129,7 +130,7 @@ export const ProposalList: React.FC<ProposalListProps> = ({
                     className="text-gray-500 hover:text-gray-700"
                   >
                     {isExpanded ? '▼' : '▶'}
-                  </button>
+                  </Button>
                 </div>
 
                 {/* サマリー */}
@@ -162,7 +163,7 @@ export const ProposalList: React.FC<ProposalListProps> = ({
                     {/* アクション */}
                     <div className="flex flex-col gap-2 pt-2">
                       <div className="flex gap-2">
-                        <button
+                        <Button
                           onClick={(e) => {
                             e.stopPropagation();
                             onEditProposal(proposal);
@@ -170,9 +171,9 @@ export const ProposalList: React.FC<ProposalListProps> = ({
                           className="flex-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
                         >
                           ✏️ 編集
-                        </button>
+                        </Button>
                         {!proposal.isOfficial && (
-                          <button
+                          <Button
                             onClick={(e) => {
                               e.stopPropagation();
                               if (window.confirm(`${proposal.name}を削除しますか?`)) {
@@ -182,11 +183,11 @@ export const ProposalList: React.FC<ProposalListProps> = ({
                             className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700"
                           >
                             🗑️
-                          </button>
+                          </Button>
                         )}
                       </div>
                       {!proposal.isOfficial && (
-                        <button
+                        <Button
                           onClick={(e) => {
                             e.stopPropagation();
                             onSelectOfficialProposal(proposal);
@@ -194,7 +195,7 @@ export const ProposalList: React.FC<ProposalListProps> = ({
                           className="w-full px-3 py-2 bg-yellow-500 text-white text-sm font-medium rounded hover:bg-yellow-600"
                         >
                           ⭐ 正式プランに設定
-                        </button>
+                        </Button>
                       )}
                     </div>
                   </div>

@@ -3,6 +3,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import Button from "../Button";
 import type { TripPlanProposal } from '../../types/canvas';
 
 interface ProposalEditDialogProps {
@@ -145,7 +146,7 @@ export const ProposalEditDialog: React.FC<ProposalEditDialogProps> = ({
             </label>
             <div className="grid grid-cols-4 gap-2">
               {PRESET_COLORS.map((preset) => (
-                <button
+                <Button
                   key={preset.value}
                   onClick={() => setColor(preset.value)}
                   className={`p-2 rounded-md border-2 transition-all ${
@@ -159,7 +160,7 @@ export const ProposalEditDialog: React.FC<ProposalEditDialogProps> = ({
                   {color === preset.value && (
                     <span className="text-white text-lg">✓</span>
                   )}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -215,18 +216,18 @@ export const ProposalEditDialog: React.FC<ProposalEditDialogProps> = ({
 
         {/* アクション */}
         <div className="flex gap-3 mt-6">
-          <button
+          <Button
             onClick={onClose}
             className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
           >
             キャンセル
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleSave}
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             保存
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import Button from "../components/Button";
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useTripStore } from '../stores/tripStore';
@@ -209,18 +210,18 @@ function Trips() {
 
           {/* ボタン */}
           <div className="flex gap-4 mt-4">
-            <button
+            <Button
               onClick={handleSearch}
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
             >
               検索
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleReset}
               className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
             >
               リセット
-            </button>
+            </Button>
           </div>
         </div>
 

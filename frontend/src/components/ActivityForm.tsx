@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Button from "./Button";
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -391,13 +392,13 @@ function ActivityForm({
                             participant.member.guestName ||
                             '不明'}
                         </span>
-                        <button
+                        <Button
                           type="button"
                           onClick={() => handleRemoveParticipant(participant.tripPlanMemberId)}
                           className="text-blue-600 hover:text-blue-800"
                         >
                           ✕
-                        </button>
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -458,20 +459,20 @@ function ActivityForm({
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <button
+                      <Button
                         type="button"
                         onClick={() => setShowTransportForm(true)}
                         className="text-sm text-blue-600 hover:text-blue-800"
                       >
                         編集
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
                         onClick={handleDeleteTransport}
                         className="text-sm text-red-600 hover:text-red-800"
                       >
                         削除
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -561,21 +562,21 @@ function ActivityForm({
                   </div>
 
                   <div className="flex gap-2">
-                    <button
+                    <Button
                       type="button"
                       onClick={handleSaveTransport}
                       className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm"
                     >
                       保存
-                    </button>
+                    </Button>
                     {showTransportForm && (
-                      <button
+                      <Button
                         type="button"
                         onClick={() => setShowTransportForm(false)}
                         className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors text-sm"
                       >
                         キャンセル
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -586,20 +587,20 @@ function ActivityForm({
 
         {/* 送信ボタン */}
         <div className="flex justify-end gap-4">
-          <button
+          <Button
             type="button"
             onClick={onCancel}
             className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
           >
             キャンセル
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
             disabled={isSubmitting}
             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:bg-gray-400"
           >
             {isSubmitting ? '保存中...' : activity ? '更新' : '追加'}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

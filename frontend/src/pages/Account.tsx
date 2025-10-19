@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import Button from "../components/Button";
 import { useAuthStore } from '../stores/authStore';
 import Header from '../components/Header';
 import { format } from 'date-fns';
@@ -28,12 +29,12 @@ export default function Account() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
             <p className="text-gray-500 text-lg mb-4">ユーザー情報が見つかりません</p>
-            <button
+            <Button
               onClick={() => navigate('/trips')}
               className="text-blue-600 hover:text-blue-700"
             >
               旅行プラン一覧に戻る
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -45,7 +46,7 @@ export default function Account() {
       <Header />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* 戻るボタン */}
-        <button
+        <Button
           onClick={() => navigate('/trips')}
           className="text-blue-600 hover:text-blue-700 mb-4 flex items-center"
         >
@@ -53,7 +54,7 @@ export default function Account() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           戻る
-        </button>
+        </Button>
 
         {/* ページタイトル */}
         <div className="mb-8">
@@ -144,12 +145,12 @@ export default function Account() {
 
           <div className="space-y-4">
             {/* ログアウトボタン */}
-            <button
+            <Button
               onClick={handleLogout}
               className="w-full sm:w-auto px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"
             >
               ログアウト
-            </button>
+            </Button>
 
             {/* 将来的に追加予定の機能 */}
             <div className="pt-4 border-t border-gray-200">

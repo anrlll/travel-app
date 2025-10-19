@@ -30,6 +30,7 @@ import { ProposalList } from '../components/canvas/ProposalList';
 import { ProposalEditDialog } from '../components/canvas/ProposalEditDialog';
 import { ProposalComparison } from '../components/canvas/ProposalComparison';
 import { OfficialPlanSelectionDialog } from '../components/canvas/OfficialPlanSelectionDialog';
+import Button from '../components/Button';
 import type { CanvasActivityCard, CreateCardData, TripPlanProposal } from '../types/canvas';
 import axios from '../lib/axios';
 
@@ -370,12 +371,12 @@ export const CanvasPlanning: React.FC = () => {
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
           <h2 className="text-red-800 font-bold text-lg mb-2">エラーが発生しました</h2>
           <p className="text-red-600">{error}</p>
-          <button
+          <Button
             onClick={() => navigate(`/trips/${tripId}`)}
             className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
           >
             旅行詳細に戻る
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -386,12 +387,12 @@ export const CanvasPlanning: React.FC = () => {
       {/* ヘッダー・ツールバー */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
         <div className="flex items-center gap-4">
-          <button
+          <Button
             onClick={() => navigate(`/trips/${tripId}`)}
             className="text-gray-600 hover:text-gray-900 font-medium"
           >
             ← 戻る
-          </button>
+          </Button>
           <h1 className="text-xl font-bold text-gray-900">キャンバスプランニング</h1>
         </div>
 
@@ -399,7 +400,7 @@ export const CanvasPlanning: React.FC = () => {
           <span className="text-sm text-gray-600">
             カード: {cards.length} | 接続: {connections.length} | プラン案: {proposals.length}
           </span>
-          <button
+          <Button
             onClick={() => setShowProposalPanel(!showProposalPanel)}
             className={`px-4 py-2 rounded-md flex items-center gap-2 ${
               showProposalPanel
@@ -409,14 +410,14 @@ export const CanvasPlanning: React.FC = () => {
           >
             <span>📊</span>
             <span>プラン案パネル</span>
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleNewCardClick}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
           >
             <span>+</span>
             <span>新規カード</span>
-          </button>
+          </Button>
         </div>
       </header>
 

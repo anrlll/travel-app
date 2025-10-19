@@ -8,6 +8,7 @@ import {
   transportTypeLabels,
   transportTypeIcons,
 } from '../types/activity';
+import Button from './Button';
 
 interface ActivityCardProps {
   activity: Activity;
@@ -219,22 +220,24 @@ function ActivityCard({
           {/* 順序変更ボタン - キャンバス作成の場合は無効化 */}
           {(onMoveUp || onMoveDown) && (
             <div className="flex gap-2">
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => onMoveUp?.(activity.id)}
                 disabled={isFirst || activity.isFromCanvas}
-                className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title={activity.isFromCanvas ? 'キャンバス作成のため移動不可' : '上に移動'}
               >
                 ↑
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => onMoveDown?.(activity.id)}
                 disabled={isLast || activity.isFromCanvas}
-                className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title={activity.isFromCanvas ? 'キャンバス作成のため移動不可' : '下に移動'}
               >
                 ↓
-              </button>
+              </Button>
               {/* 日移動ドロップダウン - キャンバス作成の場合は無効化 */}
               {onMoveToDay && availableDays && availableDays.length > 1 && (
                 <select
@@ -260,23 +263,25 @@ function ActivityCard({
           )}
 
           {/* 編集・削除ボタン */}
-          <div className="flex gap-2">
-            <button
+          <div className="flex justify-end gap-1">
+            <Button
+              variant="primary"
+              size="xs"
               onClick={() => onEdit(activity)}
-              className="flex-1 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
             >
               編集
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="danger"
+              size="xs"
               onClick={() => {
                 if (window.confirm('このアクティビティを削除しますか?')) {
                   onDelete(activity.id);
                 }
               }}
-              className="flex-1 px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
             >
               削除
-            </button>
+            </Button>
           </div>
         </div>
       )}

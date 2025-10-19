@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Button from "./Button";
 import { useBudgetStore } from '../stores/budgetStore';
 import { budgetCategoryLabels, type BudgetCategory, type Budget } from '../types/budget';
 
@@ -142,7 +143,7 @@ function BudgetManager({ tripId, canEdit }: BudgetManagerProps) {
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold text-gray-900">予算設定</h3>
             {canEdit && !showForm && availableCategories.length > 0 && (
-              <button
+              <Button
                 onClick={() => {
                   // 最初の利用可能なカテゴリを設定してフォームを開く
                   setFormData({
@@ -156,7 +157,7 @@ function BudgetManager({ tripId, canEdit }: BudgetManagerProps) {
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm"
               >
                 + 予算を追加
-              </button>
+              </Button>
             )}
           </div>
 
@@ -165,7 +166,7 @@ function BudgetManager({ tripId, canEdit }: BudgetManagerProps) {
               予算が設定されていません
               {canEdit && availableCategories.length > 0 && (
                 <span className="block mt-2">
-                  <button
+                  <Button
                     onClick={() => {
                       // 最初の利用可能なカテゴリを設定してフォームを開く
                       setFormData({
@@ -179,7 +180,7 @@ function BudgetManager({ tripId, canEdit }: BudgetManagerProps) {
                     className="text-blue-600 hover:text-blue-700 font-medium"
                   >
                     予算を追加する
-                  </button>
+                  </Button>
                 </span>
               )}
             </p>
@@ -212,18 +213,18 @@ function BudgetManager({ tripId, canEdit }: BudgetManagerProps) {
                     </div>
                     {canEdit && (
                       <div className="flex gap-2">
-                        <button
+                        <Button
                           onClick={() => handleEdit(budget)}
                           className="px-3 py-1 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                         >
                           編集
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           onClick={() => handleDelete(budget.category)}
                           className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-md transition-colors"
                         >
                           削除
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -314,20 +315,20 @@ function BudgetManager({ tripId, canEdit }: BudgetManagerProps) {
 
             {/* ボタン */}
             <div className="flex justify-end gap-3 pt-2">
-              <button
+              <Button
                 type="button"
                 onClick={handleCancel}
                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 キャンセル
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
                 disabled={isLoading}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:bg-gray-400"
               >
                 {isLoading ? '保存中...' : editingBudget ? '更新' : '追加'}
-              </button>
+              </Button>
             </div>
           </form>
         </div>

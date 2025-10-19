@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
+import Button from '../Button';
 import type { CanvasActivityCard } from '../../types/canvas';
 import { activityTypeIcons } from '../../types/canvas';
 
@@ -57,7 +58,7 @@ export const ActivityCardNode: React.FC<NodeProps<ActivityCardNodeData>> = ({ da
           {card.isCompleted && <span className="text-green-600">✓</span>}
         </div>
         <div className="flex gap-1">
-          <button
+          <Button
             onClick={(e) => {
               e.stopPropagation();
               onEdit(card);
@@ -66,8 +67,8 @@ export const ActivityCardNode: React.FC<NodeProps<ActivityCardNodeData>> = ({ da
             title="編集"
           >
             ✏️
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={(e) => {
               e.stopPropagation();
               if (confirm('このカードを削除しますか？')) {
@@ -78,7 +79,7 @@ export const ActivityCardNode: React.FC<NodeProps<ActivityCardNodeData>> = ({ da
             title="削除"
           >
             🗑️
-          </button>
+          </Button>
         </div>
       </div>
 

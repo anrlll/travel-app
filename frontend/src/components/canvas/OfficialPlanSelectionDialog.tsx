@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import Button from "../Button";
 import type { TripPlanProposal } from '../../types/canvas';
 
 interface OfficialPlanSelectionDialogProps {
@@ -70,12 +71,12 @@ export const OfficialPlanSelectionDialog: React.FC<OfficialPlanSelectionDialogPr
               />
               <h2 className="text-xl font-bold text-gray-900">{proposal.name}</h2>
             </div>
-            <button
+            <Button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 text-2xl"
             >
               ×
-            </button>
+            </Button>
           </div>
           <p className="text-sm text-gray-600 mt-2">このプラン案を正式プランとして設定します</p>
         </div>
@@ -92,12 +93,12 @@ export const OfficialPlanSelectionDialog: React.FC<OfficialPlanSelectionDialogPr
                   <p className="text-sm text-red-700 mb-3">
                     正式プランに設定するには、適用する日付を設定する必要があります。
                   </p>
-                  <button
+                  <Button
                     onClick={onEditDates}
                     className="px-4 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700"
                   >
                     編集して日付を設定
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -150,19 +151,19 @@ export const OfficialPlanSelectionDialog: React.FC<OfficialPlanSelectionDialogPr
 
         {/* アクション */}
         <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
-          <button
+          <Button
             onClick={onClose}
             className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
           >
             キャンセル
-          </button>
+          </Button>
           {hasSchedule && (
-            <button
+            <Button
               onClick={onConfirm}
               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
             >
               ⭐ 正式プランに設定
-            </button>
+            </Button>
           )}
         </div>
       </div>

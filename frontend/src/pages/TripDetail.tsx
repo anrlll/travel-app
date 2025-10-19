@@ -10,6 +10,7 @@ import ActivityCard from '../components/ActivityCard';
 import ActivityForm from '../components/ActivityForm';
 import BudgetSummary from '../components/BudgetSummary';
 import BudgetManager from '../components/BudgetManager';
+import Button from '../components/Button';
 import type { Activity, CreateActivityData } from '../types/activity';
 
 // ステータスバッジのスタイル
@@ -349,12 +350,12 @@ function TripDetail() {
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
             {error}
           </div>
-          <button
+          <Button
             onClick={() => navigate('/trips')}
             className="mt-4 text-blue-600 hover:text-blue-700"
           >
             旅行プラン一覧に戻る
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -368,12 +369,12 @@ function TripDetail() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
             <p className="text-gray-500 text-lg mb-4">旅行プランが見つかりません</p>
-            <button
+            <Button
               onClick={() => navigate('/trips')}
               className="text-blue-600 hover:text-blue-700"
             >
               旅行プラン一覧に戻る
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -402,7 +403,7 @@ function TripDetail() {
       <Header />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* 戻るボタン */}
-        <button
+        <Button
           onClick={() => navigate('/trips')}
           className="text-blue-600 hover:text-blue-700 mb-4 flex items-center"
         >
@@ -410,7 +411,7 @@ function TripDetail() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           戻る
-        </button>
+        </Button>
 
         {/* ヘッダー */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -427,18 +428,18 @@ function TripDetail() {
             </div>
             {isOwner && (
               <div className="flex gap-2">
-                <button
+                <Button
                   onClick={() => navigate(`/trips/${id}/edit`)}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
                 >
                   編集
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => setShowDeleteConfirm(true)}
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
                 >
                   削除
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -470,7 +471,7 @@ function TripDetail() {
           <div className="border-b border-gray-200">
             <nav className="flex items-center justify-between -mb-px">
               <div className="flex -mb-px">
-                <button
+                <Button
                   onClick={() => setActiveTab('overview')}
                   className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === 'overview'
@@ -479,8 +480,8 @@ function TripDetail() {
                   }`}
                 >
                   概要
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => setActiveTab('itinerary')}
                   className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === 'itinerary'
@@ -489,8 +490,8 @@ function TripDetail() {
                   }`}
                 >
                   日程 {activities.length > 0 && `(${activities.length}件)`}
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => setActiveTab('budget')}
                   className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === 'budget'
@@ -499,10 +500,10 @@ function TripDetail() {
                   }`}
                 >
                   予算
-                </button>
+                </Button>
               </div>
               {canEdit && (
-                <button
+                <Button
                   onClick={() => navigate(`/trips/${id}/canvas`)}
                   className="mr-4 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors text-sm font-medium flex items-center gap-2"
                 >
@@ -510,7 +511,7 @@ function TripDetail() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-3zM14 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1v-3z" />
                   </svg>
                   キャンバスで編集
-                </button>
+                </Button>
               )}
             </nav>
           </div>
@@ -623,12 +624,12 @@ function TripDetail() {
                   <div className="text-center py-12">
                     <p className="text-gray-500 mb-4">日程が設定されていません</p>
                     {isOwner && (
-                      <button
+                      <Button
                         onClick={() => navigate(`/trips/${id}/edit`)}
                         className="text-blue-600 hover:text-blue-700 font-medium"
                       >
                         旅行プランを編集して日程を設定する
-                      </button>
+                      </Button>
                     )}
                   </div>
                 ) : activitiesLoading ? (
@@ -652,7 +653,7 @@ function TripDetail() {
                             </h3>
                             <div className="flex gap-2">
                               {canEdit && dayActivities.length > 0 && (
-                                <button
+                                <Button
                                   onClick={() => setSelectionMode(!selectionMode)}
                                   className={`px-4 py-2 rounded-md transition-colors text-sm ${
                                     selectionMode
@@ -661,15 +662,15 @@ function TripDetail() {
                                   }`}
                                 >
                                   {selectionMode ? '選択モード終了' : '選択モード'}
-                                </button>
+                                </Button>
                               )}
                               {canEdit && (
-                                <button
+                                <Button
                                   onClick={() => handleAddActivity(dayNumber)}
                                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm"
                                 >
                                   + アクティビティを追加
-                                </button>
+                                </Button>
                               )}
                             </div>
                           </div>
@@ -792,7 +793,7 @@ function TripDetail() {
                   {selectedActivities.size}件選択中
                 </div>
                 <div className="flex gap-3">
-                  <button
+                  <Button
                     onClick={() => {
                       const allActivitiesInView = activities.map((a) => a.id);
                       setSelectedActivities(new Set(allActivitiesInView));
@@ -800,31 +801,31 @@ function TripDetail() {
                     className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors text-sm"
                   >
                     すべて選択
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => setSelectedActivities(new Set())}
                     className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors text-sm"
                   >
                     選択解除
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => handleBatchComplete(true)}
                     className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors text-sm"
                   >
                     完了にする
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => handleBatchComplete(false)}
                     className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors text-sm"
                   >
                     未完了にする
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={handleBatchDelete}
                     className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors text-sm"
                   >
                     削除
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -838,19 +839,19 @@ function TripDetail() {
               <h3 className="text-lg font-bold mb-4">旅行プランを削除しますか？</h3>
               <p className="text-gray-600 mb-6">この操作は取り消せません。</p>
               <div className="flex justify-end gap-4">
-                <button
+                <Button
                   onClick={() => setShowDeleteConfirm(false)}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                 >
                   キャンセル
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleDelete}
                   disabled={isDeleting}
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md disabled:bg-gray-400"
                 >
                   {isDeleting ? '削除中...' : '削除'}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

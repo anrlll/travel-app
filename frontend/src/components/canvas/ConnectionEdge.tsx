@@ -3,6 +3,7 @@
  */
 
 import React from 'react';
+import Button from "../Button";
 import { BaseEdge, EdgeLabelRenderer, EdgeProps, getSmoothStepPath } from '@xyflow/react';
 import type { CardConnection } from '../../types/canvas';
 import { transportTypeIcons } from '../../types/canvas';
@@ -105,7 +106,7 @@ export const ConnectionEdge: React.FC<EdgeProps<ConnectionEdgeData>> = ({
               {/* 編集・削除ボタン */}
               <div className="flex gap-1 border-l pl-2">
                 {onEdit && (
-                  <button
+                  <Button
                     onClick={(e) => {
                       e.stopPropagation();
                       onEdit(connection);
@@ -114,10 +115,10 @@ export const ConnectionEdge: React.FC<EdgeProps<ConnectionEdgeData>> = ({
                     title="編集"
                   >
                     ✏️
-                  </button>
+                  </Button>
                 )}
                 {onDelete && (
-                  <button
+                  <Button
                     onClick={(e) => {
                       e.stopPropagation();
                       if (confirm('この接続を削除しますか？')) {
@@ -128,7 +129,7 @@ export const ConnectionEdge: React.FC<EdgeProps<ConnectionEdgeData>> = ({
                     title="削除"
                   >
                     ✕
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>

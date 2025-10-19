@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import Button from "../components/Button";
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -172,12 +173,12 @@ function EditTrip() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
             <p className="text-gray-500 text-lg mb-4">旅行プランが見つかりません</p>
-            <button
+            <Button
               onClick={() => navigate('/trips')}
               className="text-blue-600 hover:text-blue-700"
             >
               旅行プラン一覧に戻る
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -190,7 +191,7 @@ function EditTrip() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* ヘッダー */}
         <div className="mb-8">
-          <button
+          <Button
             onClick={() => navigate(`/trips/${id}`)}
             className="text-blue-600 hover:text-blue-700 mb-4 flex items-center"
           >
@@ -198,7 +199,7 @@ function EditTrip() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             戻る
-          </button>
+          </Button>
           <h1 className="text-3xl font-bold text-gray-900">旅行プランを編集</h1>
         </div>
 
@@ -284,7 +285,7 @@ function EditTrip() {
                   placeholder="例: 京都"
                 />
                 {fields.length > 1 && (
-                  <button
+                  <Button
                     type="button"
                     onClick={() => remove(index)}
                     className="text-red-600 hover:text-red-700 p-2"
@@ -297,20 +298,20 @@ function EditTrip() {
                         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                       />
                     </svg>
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
             {errors.destinations && (
               <p className="text-red-500 text-sm mt-1">{errors.destinations.message}</p>
             )}
-            <button
+            <Button
               type="button"
               onClick={() => append({ name: '' })}
               className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
             >
               + 目的地を追加
-            </button>
+            </Button>
           </div>
 
           {/* ステータス */}
@@ -370,20 +371,20 @@ function EditTrip() {
 
           {/* 送信ボタン */}
           <div className="flex justify-end gap-4">
-            <button
+            <Button
               type="button"
               onClick={() => navigate(`/trips/${id}`)}
               className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
             >
               キャンセル
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={isSubmitting}
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:bg-gray-400"
             >
               {isSubmitting ? '更新中...' : '更新'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

@@ -45,10 +45,10 @@ async function registerPlugins() {
     },
   });
 
-  // レート制限
+  // レート制限（開発環境では緩和）
   await fastify.register(rateLimit, {
-    max: 100,
-    timeWindow: '15 minutes',
+    max: config.nodeEnv === 'development' ? 1000 : 100, // 開発: 1000, 本番: 100
+    timeWindow: config.nodeEnv === 'development' ? '1 minute' : '15 minutes', // 開発: 1分, 本番: 15分
   });
 
   // JWT認証
