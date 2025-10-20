@@ -200,3 +200,93 @@ export async function selectOfficialProposal(
 
   return updatedProposal;
 }
+
+/**
+ * 正式プランを解除し、データを元に戻す
+ * - isOfficialをfalseに設定
+ * - 該当する日のtrip_plan_activities（isFromCanvas=true）を削除
+ */
+export async function unselectOfficialProposal(
+  tripPlanId: string,
+  proposalId: string,
+  userId: string
+) {
+  // プラン案取得
+  const proposal = await prisma.tripPlanProposal.findUnique({
+    where: { id: proposalId },
+    include: {
+      tripPlan: true,
+    },
+  });
+
+  if (!proposal) {
+    throw new Error('プラン案が見つかりません');
+  }
+
+  if (!proposal.isOfficial) {
+    throw new Error('このプラン案は正式プランではありません');
+  }
+
+  if (!proposal.proposalDate) {
+    throw new Error('プラン案の日付が設定されていません');
+  }
+
+  if (!proposal.tripPlan.startDate) {
+    throw new Error('旅行プランの開始日が設定されていません');
+  }
+
+  // proposalDateから旅行の何日目かを計算
+  const tripStartDate = new Date(proposal.tripPlan.startDate);
+  const proposalDateObj = new Date(proposal.proposalDate);
+
+  // 日付のみを比較するため、時刻をリセット
+  tripStartDate.setHours(0, 0, 0, 0);
+  proposalDateObj.setHours(0, 0, 0, 0);
+
+  const diffTime = proposalDateObj.getTime() - tripStartDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const calculatedDayNumber = diffDays + 1; // 1日目、2日目、3日目...
+
+  console.log('正式プラン解除 - 日程計算:', {
+    tripStartDate: tripStartDate.toISOString(),
+    proposalDate: proposalDateObj.toISOString(),
+    diffDays,
+    calculatedDayNumber,
+  });
+
+  // トランザクションでデータ削除と更新
+  await prisma.$transaction(async (tx) => {
+    // 1. 該当する日（dayNumber）のtrip_plan_activitiesを削除（isFromCanvas=trueのみ）
+    const deleteResult = await tx.tripPlanActivity.deleteMany({
+      where: {
+        tripPlanId,
+        dayNumber: calculatedDayNumber,
+        isFromCanvas: true, // キャンバスモードから作成されたアクティビティのみ
+      },
+    });
+
+    console.log(`正式プラン解除: ${deleteResult.count}件のアクティビティを削除`);
+
+    // 2. プラン案のisOfficialをfalseに設定
+    await tx.tripPlanProposal.update({
+      where: { id: proposalId },
+      data: {
+        isOfficial: false,
+      },
+    });
+  });
+
+  // 解除完了後、更新されたプラン案を返却
+  const updatedProposal = await prisma.tripPlanProposal.findUnique({
+    where: { id: proposalId },
+    include: {
+      activities: {
+        include: {
+          card: true,
+        },
+      },
+    },
+  });
+
+  return updatedProposal;
+}

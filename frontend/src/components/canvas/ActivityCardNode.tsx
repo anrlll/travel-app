@@ -12,10 +12,11 @@ interface ActivityCardNodeData {
   card: CanvasActivityCard;
   onEdit: (card: CanvasActivityCard) => void;
   onDelete: (cardId: string) => void;
+  proposalBadges?: Array<{ name: string; color: string }>; // プラン案バッジ
 }
 
 export const ActivityCardNode: React.FC<NodeProps<ActivityCardNodeData>> = ({ data }) => {
-  const { card, onEdit, onDelete } = data;
+  const { card, onEdit, onDelete, proposalBadges } = data;
 
   // アクティビティタイプに応じた色
   const getActivityColor = (type: string) => {
@@ -56,6 +57,21 @@ export const ActivityCardNode: React.FC<NodeProps<ActivityCardNodeData>> = ({ da
         <div className="flex items-center gap-2">
           <span className="text-xl">{activityTypeIcons[card.activityType]}</span>
           {card.isCompleted && <span className="text-green-600">✓</span>}
+          {/* プラン案バッジ */}
+          {proposalBadges && proposalBadges.length > 0 && (
+            <div className="flex gap-1">
+              {proposalBadges.map((badge) => (
+                <span
+                  key={badge.name}
+                  style={{ backgroundColor: badge.color }}
+                  className="text-xs px-1.5 py-0.5 rounded text-white font-bold shadow-sm"
+                  title={`プラン案${badge.name}`}
+                >
+                  {badge.name}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex gap-1">
           <Button

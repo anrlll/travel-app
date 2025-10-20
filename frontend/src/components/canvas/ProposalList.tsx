@@ -15,6 +15,10 @@ interface ProposalListProps {
   onCompareProposals: () => void;
   onDetectProposals: () => void;
   onSelectOfficialProposal: (proposal: TripPlanProposal) => void;
+  onUnselectOfficialProposal: (proposal: TripPlanProposal) => void;
+  onUpdateProposalDate: (proposalId: string, proposalDate: string) => void;
+  tripStartDate?: string;
+  tripEndDate?: string;
 }
 
 export const ProposalList: React.FC<ProposalListProps> = ({
@@ -26,8 +30,39 @@ export const ProposalList: React.FC<ProposalListProps> = ({
   onCompareProposals,
   onDetectProposals,
   onSelectOfficialProposal,
+  onUnselectOfficialProposal,
+  onUpdateProposalDate,
+  tripStartDate,
+  tripEndDate,
 }) => {
   const [expandedProposalId, setExpandedProposalId] = useState<string | null>(null);
+
+  // 利用可能な日程リストを生成
+  const getAvailableDates = (): Array<{ value: string; label: string }> => {
+    if (!tripStartDate || !tripEndDate) {
+      return [];
+    }
+
+    const dates: Array<{ value: string; label: string }> = [];
+    const start = new Date(tripStartDate);
+    const end = new Date(tripEndDate);
+
+    let current = new Date(start);
+    while (current <= end) {
+      const dateStr = current.toISOString().split('T')[0]; // YYYY-MM-DD
+      const label = current.toLocaleDateString('ja-JP', {
+        month: 'long',
+        day: 'numeric',
+        weekday: 'short',
+      });
+      dates.push({ value: dateStr, label });
+      current.setDate(current.getDate() + 1);
+    }
+
+    return dates;
+  };
+
+  const availableDates = getAvailableDates();
 
   const formatCurrency = (amount: number | undefined) => {
     if (amount === undefined || amount === null) return '未設定';
@@ -160,6 +195,38 @@ export const ProposalList: React.FC<ProposalListProps> = ({
                 {/* 詳細（展開時） */}
                 {isExpanded && (
                   <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                    {/* 日程選択 */}
+                    <div className="mb-3" onClick={(e) => e.stopPropagation()}>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        日程:
+                      </label>
+                      <select
+                        value={proposal.proposalDate || ''}
+                        onChange={(e) => {
+                          onUpdateProposalDate(proposal.id, e.target.value);
+                        }}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        disabled={availableDates.length === 0 || proposal.isOfficial}
+                      >
+                        <option value="">日程を選択</option>
+                        {availableDates.map((date) => (
+                          <option key={date.value} value={date.value}>
+                            {date.label}
+                          </option>
+                        ))}
+                      </select>
+                      {availableDates.length === 0 && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          旅行プランの日程を設定してください
+                        </p>
+                      )}
+                      {proposal.isOfficial && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          正式プランの日程を変更するには、まず正式プランを解除してください
+                        </p>
+                      )}
+                    </div>
+
                     {/* アクション */}
                     <div className="flex flex-col gap-2 pt-2">
                       <div className="flex gap-2">
@@ -186,15 +253,37 @@ export const ProposalList: React.FC<ProposalListProps> = ({
                           </Button>
                         )}
                       </div>
-                      {!proposal.isOfficial && (
+                      {/* 正式プラン設定/解除ボタン */}
+                      {!proposal.isOfficial ? (
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
                             onSelectOfficialProposal(proposal);
                           }}
-                          className="w-full px-3 py-2 bg-yellow-500 text-white text-sm font-medium rounded hover:bg-yellow-600"
+                          disabled={!proposal.proposalDate}
+                          className={`w-full px-3 py-2 text-sm font-medium rounded ${
+                            proposal.proposalDate
+                              ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
+                          title={
+                            proposal.proposalDate
+                              ? '正式プランに設定'
+                              : '日程を選択してください'
+                          }
                         >
                           ⭐ 正式プランに設定
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onUnselectOfficialProposal(proposal);
+                          }}
+                          className="w-full px-3 py-2 bg-gray-600 text-white text-sm font-medium rounded hover:bg-gray-700"
+                          title="正式プランを解除"
+                        >
+                          ⭕ 正式プランを解除
                         </Button>
                       )}
                     </div>

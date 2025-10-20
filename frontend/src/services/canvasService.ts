@@ -346,3 +346,21 @@ export async function selectOfficialProposal(
 
   return response.data.data;
 }
+
+/**
+ * 正式プランを解除（従来型構造→キャンバス下書きに戻す）
+ */
+export async function unselectOfficialProposal(
+  tripId: string,
+  proposalId: string
+): Promise<TripPlanProposal> {
+  const response = await axios.delete<ApiResponse<TripPlanProposal>>(
+    `/api/v1/trips/${tripId}/canvas/proposals/${proposalId}/select-official`
+  );
+
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.message || '正式プラン解除に失敗しました');
+  }
+
+  return response.data.data;
+}

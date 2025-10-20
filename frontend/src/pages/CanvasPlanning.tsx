@@ -69,6 +69,7 @@ const CanvasPlanningInner: React.FC = () => {
     updateProposal,
     deleteProposal,
     selectOfficialProposal,
+    unselectOfficialProposal,
     reset,
   } = useCanvasStore();
 
@@ -77,6 +78,7 @@ const CanvasPlanningInner: React.FC = () => {
 
   // ビューポートの状態を保持
   const viewportRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
+  const saveViewportTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<CanvasActivityCard | null>(null);
   const [newCardPosition, setNewCardPosition] = useState<{ x: number; y: number } | null>(null);
@@ -202,22 +204,49 @@ const CanvasPlanningInner: React.FC = () => {
   useEffect(() => {
     if (cards.length > 0 && nodes.length === 0) {
       // nodesが空で、cardsにデータがある場合のみ初期化
-      const flowNodes: Node[] = cards.map((card) => ({
-        id: card.id,
-        type: 'activityCard',
-        position: { x: card.positionX, y: card.positionY },
-        data: {
-          card,
-          onEdit: handleEditCard,
-          onDelete: handleDeleteCard,
-        },
-      }));
+      const flowNodes: Node[] = cards.map((card) => {
+        // このカードが属するプラン案のバッジを計算
+        const proposalBadges = proposals
+          .filter((p) => p.activities?.some((a) => a.cardId === card.id))
+          .map((p) => ({
+            name: p.name.replace('プラン案', ''), // "プラン案A" → "A"
+            color: p.color,
+          }));
+
+        return {
+          id: card.id,
+          type: 'activityCard',
+          position: { x: card.positionX, y: card.positionY },
+          data: {
+            card,
+            onEdit: handleEditCard,
+            onDelete: handleDeleteCard,
+            proposalBadges,
+          },
+        };
+      });
       setNodes(flowNodes);
+
+      // ビューポート復元処理
+      requestAnimationFrame(() => {
+        if (tripId) {
+          const savedViewport = localStorage.getItem(`canvas-viewport-${tripId}`);
+          if (savedViewport) {
+            try {
+              const viewport = JSON.parse(savedViewport);
+              reactFlowInstance.setViewport(viewport, { duration: 0 });
+              console.log('ビューポート復元:', viewport);
+            } catch (error) {
+              console.error('ビューポート復元エラー:', error);
+            }
+          }
+        }
+      });
     }
     // cardsが変わった時に実行されるが、nodes.length > 0 になった後は条件に合わないため実行されない
     // カード作成時も、既にnodes.length > 0 のため、この条件には入らない
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cards.length]);
+  }, [cards.length, proposals, tripId, reactFlowInstance]);
 
   // 接続をReact Flowのエッジに変換（初回読み込み時のみ）
   // connections.lengthを依存配列にすることで、初回読み込み時のみ実行
@@ -245,6 +274,114 @@ const CanvasPlanningInner: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connections.length]);
 
+  // プラン案変更時にすべてのノードのバッジを更新
+  useEffect(() => {
+    if (nodes.length > 0) {
+      setNodes((nds) =>
+        nds.map((node) => {
+          // このカードが属するプラン案のバッジを計算
+          const proposalBadges = proposals
+            .filter((p) => p.activities?.some((a) => a.cardId === node.id))
+            .map((p) => ({
+              name: p.name.replace('プラン案', ''),
+              color: p.color,
+            }));
+
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              proposalBadges,
+            },
+          };
+        })
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proposals]);
+
+  // ビューポートタイマーのクリーンアップ
+  useEffect(() => {
+    return () => {
+      if (saveViewportTimerRef.current) {
+        clearTimeout(saveViewportTimerRef.current);
+      }
+    };
+  }, []);
+
+  // プラン案選択時の強調表示
+  useEffect(() => {
+    if (!selectedProposalId) {
+      // 選択解除: すべてのハイライトを削除
+      setNodes((nds) =>
+        nds.map((node) => ({
+          ...node,
+          style: {
+            ...node.style,
+            boxShadow: undefined,
+          },
+        }))
+      );
+      setEdges((eds) =>
+        eds.map((edge) => ({
+          ...edge,
+          style: {
+            ...edge.style,
+            strokeWidth: 2,
+            filter: undefined,
+          },
+        }))
+      );
+      return;
+    }
+
+    // 選択されたプラン案を取得（proposalsを直接参照）
+    const selectedProposal = proposals.find((p) => p.id === selectedProposalId);
+    if (!selectedProposal) return;
+
+    // このプラン案に属するカードIDを取得
+    const cardIdsInProposal = new Set(
+      selectedProposal.activities?.map((a) => a.cardId) || []
+    );
+
+    // このプラン案に属する接続IDを取得
+    const connectionIdsInProposal = new Set(
+      selectedProposal.connections?.map((c) => c.id) || []
+    );
+
+    // カードをハイライト
+    setNodes((nds) =>
+      nds.map((node) => {
+        const isHighlighted = cardIdsInProposal.has(node.id);
+        return {
+          ...node,
+          style: {
+            ...node.style,
+            boxShadow: isHighlighted
+              ? `0 0 0 3px ${selectedProposal.color}`
+              : undefined,
+          },
+        };
+      })
+    );
+
+    // 接続をハイライト
+    setEdges((eds) =>
+      eds.map((edge) => {
+        const isHighlighted = connectionIdsInProposal.has(edge.id);
+        return {
+          ...edge,
+          style: {
+            ...edge.style,
+            stroke: isHighlighted ? selectedProposal.color : undefined,
+            strokeWidth: isHighlighted ? 4 : 2,
+          },
+        };
+      })
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProposalId]);
+
   // 新しいカード作成（キャンバスダブルクリック）
   const handleCanvasDoubleClick = useCallback(
     (event: React.MouseEvent) => {
@@ -268,6 +405,13 @@ const CanvasPlanningInner: React.FC = () => {
     [tripId]
   );
 
+  // キャンバス空白部分クリック（プラン案選択解除）
+  const handlePaneClick = useCallback(() => {
+    if (selectedProposalId) {
+      selectProposal(null);
+    }
+  }, [selectedProposalId, selectProposal]);
+
   // カード保存ハンドラー
   const handleSaveCard = useCallback(
     async (data: CreateCardData) => {
@@ -280,20 +424,30 @@ const CanvasPlanningInner: React.FC = () => {
 
           // 既存ノードのデータを更新（再描画なし）
           setNodes((nds) =>
-            nds.map((node) =>
-              node.id === editingCard.id
-                ? {
-                    ...node,
-                    data: {
-                      ...node.data,
-                      card: {
-                        ...editingCard,
-                        ...data,
-                      },
+            nds.map((node) => {
+              if (node.id === editingCard.id) {
+                // バッジを再計算
+                const proposalBadges = proposals
+                  .filter((p) => p.activities?.some((a) => a.cardId === editingCard.id))
+                  .map((p) => ({
+                    name: p.name.replace('プラン案', ''),
+                    color: p.color,
+                  }));
+
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    card: {
+                      ...editingCard,
+                      ...data,
                     },
-                  }
-                : node
-            )
+                    proposalBadges,
+                  },
+                };
+              }
+              return node;
+            })
           );
         } else {
           // 新規カード作成
@@ -302,6 +456,14 @@ const CanvasPlanningInner: React.FC = () => {
           viewportRef.current = currentViewport;
 
           const newCard = await createCard(tripId, data);
+
+          // バッジを計算
+          const proposalBadges = proposals
+            .filter((p) => p.activities?.some((a) => a.cardId === newCard.id))
+            .map((p) => ({
+              name: p.name.replace('プラン案', ''),
+              color: p.color,
+            }));
 
           // 新しいノードを直接追加（再描画なし）
           const newNode: Node = {
@@ -312,6 +474,7 @@ const CanvasPlanningInner: React.FC = () => {
               card: newCard,
               onEdit: handleEditCard,
               onDelete: handleDeleteCard,
+              proposalBadges,
             },
           };
 
@@ -516,6 +679,58 @@ const CanvasPlanningInner: React.FC = () => {
     }
   }, [selectingOfficialProposal]);
 
+  const handleUnselectOfficialProposal = useCallback(
+    async (proposal: TripPlanProposal) => {
+      if (!tripId) return;
+      try {
+        if (!window.confirm(`${proposal.name}を正式プランから解除しますか？\n日程タブから予定が削除されます。`)) {
+          return;
+        }
+        await unselectOfficialProposal(tripId, proposal.id);
+        alert(`✅ ${proposal.name}を正式プランから解除しました`);
+      } catch (error) {
+        console.error('正式プラン解除エラー:', error);
+        alert('正式プラン解除に失敗しました');
+      }
+    },
+    [tripId, unselectOfficialProposal]
+  );
+
+  const handleUpdateProposalDate = useCallback(
+    async (proposalId: string, proposalDate: string) => {
+      if (!tripId) return;
+      try {
+        await updateProposal(tripId, proposalId, { proposalDate });
+      } catch (error) {
+        console.error('プラン案日程更新エラー:', error);
+        alert('プラン案の日程更新に失敗しました');
+      }
+    },
+    [tripId, updateProposal]
+  );
+
+  // ビューポート変更時のハンドラー（デバウンス付き）
+  const handleViewportChange = useCallback(
+    (viewport: { x: number; y: number; zoom: number }) => {
+      // 既存のタイマーをクリア
+      if (saveViewportTimerRef.current) {
+        clearTimeout(saveViewportTimerRef.current);
+      }
+
+      // 500msデバウンス
+      saveViewportTimerRef.current = setTimeout(() => {
+        if (tripId) {
+          localStorage.setItem(
+            `canvas-viewport-${tripId}`,
+            JSON.stringify(viewport)
+          );
+          console.log('ビューポート保存:', viewport);
+        }
+      }, 500);
+    },
+    [tripId]
+  );
+
   if (!tripId) {
     return null;
   }
@@ -599,6 +814,8 @@ const CanvasPlanningInner: React.FC = () => {
             onEdgesChange={onEdgesChange}
             onConnect={handleConnect}
             onNodeDragStop={handleNodeDragStop}
+            onPaneClick={handlePaneClick}
+            onMove={(event, viewport) => handleViewportChange(viewport)}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             snapToGrid
@@ -662,6 +879,10 @@ const CanvasPlanningInner: React.FC = () => {
               onCompareProposals={() => setIsComparisonOpen(true)}
               onDetectProposals={handleDetectProposals}
               onSelectOfficialProposal={handleSelectOfficialProposal}
+              onUnselectOfficialProposal={handleUnselectOfficialProposal}
+              onUpdateProposalDate={handleUpdateProposalDate}
+              tripStartDate={tripPlan?.startDate}
+              tripEndDate={tripPlan?.endDate}
             />
           </div>
         )}

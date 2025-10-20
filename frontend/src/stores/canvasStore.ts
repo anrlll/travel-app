@@ -58,6 +58,7 @@ interface CanvasState {
     schedule: Array<{ cardId: string; dayNumber: number; orderInDay: number }>
   ) => Promise<void>;
   selectOfficialProposal: (tripId: string, proposalId: string) => Promise<void>;
+  unselectOfficialProposal: (tripId: string, proposalId: string) => Promise<void>;
 
   // 初期化
   loadAllData: (tripId: string) => Promise<void>;
@@ -337,6 +338,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       set({ proposals, isLoading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '正式プラン設定に失敗しました';
+      set({ error: errorMessage, isLoading: false });
+      throw error;
+    }
+  },
+
+  unselectOfficialProposal: async (tripId: string, proposalId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await canvasService.unselectOfficialProposal(tripId, proposalId);
+
+      // プラン案リストを再取得（isOfficialフラグとデータが更新されている）
+      const proposals = await canvasService.getProposals(tripId);
+      set({ proposals, isLoading: false });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '正式プラン解除に失敗しました';
       set({ error: errorMessage, isLoading: false });
       throw error;
     }

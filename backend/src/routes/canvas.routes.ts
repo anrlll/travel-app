@@ -436,4 +436,34 @@ export async function canvasRoutes(fastify: FastifyInstance) {
       }
     }
   );
+
+  // 正式プラン解除（従来型構造→キャンバス下書きに戻す）
+  fastify.delete(
+    '/trips/:tripId/canvas/proposals/:proposalId/select-official',
+    { preHandler: authMiddleware },
+    async (request, reply) => {
+      try {
+        const { tripId, proposalId } = request.params as { tripId: string; proposalId: string };
+        const userId = request.user!.userId;
+
+        const proposal = await proposalConversionService.unselectOfficialProposal(
+          tripId,
+          proposalId,
+          userId
+        );
+
+        return reply.status(200).send({
+          success: true,
+          data: proposal,
+          message: '正式プランを解除しました',
+        });
+      } catch (error) {
+        request.log.error(error);
+        return reply.status(400).send({
+          success: false,
+          message: error instanceof Error ? error.message : '正式プラン解除に失敗しました',
+        });
+      }
+    }
+  );
 }
