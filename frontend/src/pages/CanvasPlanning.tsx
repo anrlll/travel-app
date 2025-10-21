@@ -27,12 +27,13 @@ import { useCanvasStore } from '../stores/canvasStore';
 import { ActivityCardNode } from '../components/canvas/ActivityCardNode';
 import { ConnectionEdge } from '../components/canvas/ConnectionEdge';
 import { CardEditDialog } from '../components/canvas/CardEditDialog';
+import { ConnectionEditDialog, ConnectionUpdateData } from '../components/canvas/ConnectionEditDialog';
 import { ProposalList } from '../components/canvas/ProposalList';
 import { ProposalEditDialog } from '../components/canvas/ProposalEditDialog';
 import { ProposalComparison } from '../components/canvas/ProposalComparison';
 import { OfficialPlanSelectionDialog } from '../components/canvas/OfficialPlanSelectionDialog';
 import Button from '../components/Button';
-import type { CanvasActivityCard, CreateCardData, TripPlanProposal } from '../types/canvas';
+import type { CanvasActivityCard, CreateCardData, TripPlanProposal, CardConnection } from '../types/canvas';
 import axios from '../lib/axios';
 
 // カスタムノード・エッジタイプの定義
@@ -63,6 +64,7 @@ const CanvasPlanningInner: React.FC = () => {
     moveCard,
     deleteCard,
     createConnection,
+    updateConnection,
     deleteConnection,
     detectProposals,
     selectProposal,
@@ -83,6 +85,10 @@ const CanvasPlanningInner: React.FC = () => {
   const [editingCard, setEditingCard] = useState<CanvasActivityCard | null>(null);
   const [newCardPosition, setNewCardPosition] = useState<{ x: number; y: number } | null>(null);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
+
+  // 接続線編集用のステート
+  const [isConnectionEditOpen, setIsConnectionEditOpen] = useState(false);
+  const [editingConnection, setEditingConnection] = useState<CardConnection | null>(null);
 
   // Phase 2.4c: プラン案関連のステート
   const [showProposalPanel, setShowProposalPanel] = useState(true);
@@ -126,6 +132,60 @@ const CanvasPlanningInner: React.FC = () => {
       }
     },
     [tripId, deleteCard, setNodes, reactFlowInstance]
+  );
+
+  // 接続線編集ハンドラー
+  const handleEditConnection = useCallback((connection: CardConnection) => {
+    setEditingConnection(connection);
+    setIsConnectionEditOpen(true);
+  }, []);
+
+  // 接続線更新ハンドラー
+  const handleUpdateConnection = useCallback(
+    async (data: ConnectionUpdateData) => {
+      if (!tripId || !editingConnection) return;
+
+      try {
+        // 現在のビューポートを保存
+        const currentViewport = reactFlowInstance.getViewport();
+        viewportRef.current = currentViewport;
+
+        await updateConnection(tripId, editingConnection.id, data);
+
+        // エッジを直接更新
+        setEdges((eds) =>
+          eds.map((edge) => {
+            if (edge.id === editingConnection.id) {
+              return {
+                ...edge,
+                data: {
+                  ...edge.data,
+                  connection: {
+                    ...edge.data.connection,
+                    ...data,
+                  },
+                },
+              };
+            }
+            return edge;
+          })
+        );
+
+        // ビューポートを復元
+        requestAnimationFrame(() => {
+          if (viewportRef.current) {
+            reactFlowInstance.setViewport(viewportRef.current, { duration: 0 });
+          }
+        });
+
+        setIsConnectionEditOpen(false);
+        setEditingConnection(null);
+      } catch (error) {
+        console.error('接続線更新エラー:', error);
+        throw error;
+      }
+    },
+    [tripId, editingConnection, updateConnection, setEdges, reactFlowInstance]
   );
 
   // 接続削除ハンドラー
@@ -260,6 +320,7 @@ const CanvasPlanningInner: React.FC = () => {
         type: 'connection',
         data: {
           connection: conn,
+          onEdit: handleEditConnection,
           onDelete: handleDeleteConnection,
         },
         animated: false,
@@ -311,6 +372,8 @@ const CanvasPlanningInner: React.FC = () => {
 
   // プラン案選択時の強調表示
   useEffect(() => {
+    console.log('🎯 ハイライトuseEffect実行:', { selectedProposalId, proposalsCount: proposals.length });
+
     if (!selectedProposalId) {
       // 選択解除: すべてのハイライトを削除
       setNodes((nds) =>
@@ -337,17 +400,24 @@ const CanvasPlanningInner: React.FC = () => {
 
     // 選択されたプラン案を取得（proposalsを直接参照）
     const selectedProposal = proposals.find((p) => p.id === selectedProposalId);
-    if (!selectedProposal) return;
+    console.log('📋 選択されたプラン案:', selectedProposal);
+
+    if (!selectedProposal) {
+      console.warn('⚠️ プラン案が見つかりません:', selectedProposalId);
+      return;
+    }
 
     // このプラン案に属するカードIDを取得
     const cardIdsInProposal = new Set(
       selectedProposal.activities?.map((a) => a.cardId) || []
     );
+    console.log('🎴 ハイライト対象カードID:', Array.from(cardIdsInProposal));
 
     // このプラン案に属する接続IDを取得
     const connectionIdsInProposal = new Set(
       selectedProposal.connections?.map((c) => c.id) || []
     );
+    console.log('🔗 ハイライト対象接続ID:', Array.from(connectionIdsInProposal));
 
     // カードをハイライト
     setNodes((nds) =>
@@ -379,8 +449,7 @@ const CanvasPlanningInner: React.FC = () => {
         };
       })
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProposalId]);
+  }, [selectedProposalId, proposals, setNodes, setEdges]);
 
   // 新しいカード作成（キャンバスダブルクリック）
   const handleCanvasDoubleClick = useCallback(
@@ -539,6 +608,7 @@ const CanvasPlanningInner: React.FC = () => {
           type: 'connection',
           data: {
             connection: newConnection,
+            onEdit: handleEditConnection,
             onDelete: handleDeleteConnection,
           },
           animated: false,
@@ -562,7 +632,7 @@ const CanvasPlanningInner: React.FC = () => {
         alert('接続の作成に失敗しました');
       }
     },
-    [tripId, createConnection, setEdges, handleDeleteConnection, reactFlowInstance]
+    [tripId, createConnection, setEdges, handleEditConnection, handleDeleteConnection, reactFlowInstance]
   );
 
   // 新規カードボタンクリック
@@ -899,6 +969,17 @@ const CanvasPlanningInner: React.FC = () => {
           setEditingCard(null);
           setNewCardPosition(null);
         }}
+      />
+
+      {/* 接続線編集ダイアログ */}
+      <ConnectionEditDialog
+        connection={editingConnection}
+        isOpen={isConnectionEditOpen}
+        onClose={() => {
+          setIsConnectionEditOpen(false);
+          setEditingConnection(null);
+        }}
+        onSave={handleUpdateConnection}
       />
 
       {/* プラン案編集ダイアログ (Phase 2.4c) */}

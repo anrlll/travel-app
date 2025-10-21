@@ -365,12 +365,33 @@ export async function getProposals(tripPlanId: string, userId: string) {
     },
   });
 
-  return proposals.map((proposal) => ({
+  console.log('🔍 getProposals - 取得したプラン案数:', proposals.length);
+  proposals.forEach((p, idx) => {
+    console.log(`📋 プラン案${idx}:`, {
+      id: p.id,
+      name: p.name,
+      activitiesCount: p.activities.length,
+      connectionsCount: p.connections.length,
+    });
+  });
+
+  const result = proposals.map((proposal) => ({
     ...proposal,
     proposalDate: proposal.proposalDate?.toISOString(),
     totalBudget: decimalToNumber(proposal.totalBudget),
     totalDistanceKm: decimalToNumber(proposal.totalDistanceKm),
   }));
+
+  console.log('📤 返却データ:', result.map(r => ({
+    id: r.id,
+    name: r.name,
+    hasActivities: !!r.activities,
+    activitiesCount: r.activities?.length,
+    hasConnections: !!r.connections,
+    connectionsCount: r.connections?.length,
+  })));
+
+  return result;
 }
 
 // プラン案詳細取得
@@ -675,6 +696,10 @@ export async function detectProposals(tripPlanId: string, userId: string) {
         totalBudget: totalBudget._sum.cost,
         activityCount: proposal.cardIds.length,
         totalDistanceKm: totalDistanceKm._sum.distanceKm,
+      },
+      include: {
+        activities: true,
+        connections: true,
       },
     });
 
