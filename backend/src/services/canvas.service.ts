@@ -437,6 +437,10 @@ export async function updateProposal(tripPlanId: string, proposalId: string, use
   const proposal = await prisma.tripPlanProposal.update({
     where: { id: proposalId },
     data: updateData,
+    include: {
+      activities: true,
+      connections: true,
+    },
   });
 
   return {
@@ -506,6 +510,17 @@ export async function detectProposals(tripPlanId: string, userId: string) {
     where: {
       tripPlanId,
       isOfficial: true,
+    },
+    include: {
+      activities: true, // ProposalActivityを含める
+    },
+  });
+
+  // 1-2. 既存の非正式プラン案を取得（カスタマイズ情報を保持するため）
+  const existingDraftProposals = await prisma.tripPlanProposal.findMany({
+    where: {
+      tripPlanId,
+      isOfficial: false,
     },
     include: {
       activities: true, // ProposalActivityを含める
@@ -625,93 +640,192 @@ export async function detectProposals(tripPlanId: string, userId: string) {
     }
   });
 
-  // 6. 既存の下書きプラン案を削除
-  await prisma.tripPlanProposal.deleteMany({
-    where: {
-      tripPlanId,
-      isOfficial: false,
-    },
-  });
+  // 6. カードIDセットでマッチングするヘルパー関数（サブセットマッチング）
+  function findMatchingProposal(
+    newCardIds: string[],
+    existingProposals: Array<{ id: string; activities: Array<{ cardId: string }> }>
+  ) {
+    const newCardSet = new Set(newCardIds);
+    let bestMatch: typeof existingProposals[0] | null = null;
+    let bestMatchSize = 0;
 
-  // 7. データベースに保存
+    for (const existing of existingProposals) {
+      const existingCardSet = new Set(existing.activities.map((a) => a.cardId));
+
+      // 既存プラン案のカードが新規プラン案のサブセットである場合
+      // （既存プラン案のすべてのカードが新規プラン案に含まれる）
+      const isSubset = [...existingCardSet].every((id) => newCardSet.has(id));
+
+      if (isSubset && existingCardSet.size > bestMatchSize) {
+        bestMatch = existing;
+        bestMatchSize = existingCardSet.size;
+      }
+    }
+
+    return bestMatch;
+  }
+
+  // 7. 既存プラン案のマッチングと更新/新規作成
   const colors = ['#3B82F6', '#10B981', '#A855F7', '#F97316', '#EF4444', '#06B6D4'];
   const savedProposals = [];
+  const usedExistingIds = new Set<string>();
+  let newProposalIndex = 0; // 新規プラン案のインデックス
 
   for (let i = 0; i < proposals.length; i++) {
     const proposal = proposals[i];
-    const proposalName = `プラン案${String.fromCharCode(65 + i)}`; // A, B, C...
-    const color = colors[i % colors.length];
 
-    // 新規プラン案を作成（下書きとして）
-    const savedProposal = await prisma.tripPlanProposal.create({
-      data: {
-        tripPlanId,
-        name: proposalName,
-        color,
-        isOfficial: false,
-      },
-    });
+    // 既存プラン案とマッチング
+    const matchingProposal = findMatchingProposal(proposal.cardIds, existingDraftProposals);
 
-    // カードをプラン案に割り当て
-    await prisma.proposalActivity.createMany({
-      data: proposal.cardIds.map((cardId, index) => ({
-        proposalId: savedProposal.id,
-        cardId,
-        dayNumber: null,
-        orderInDay: index,
-      })),
-    });
+    let savedProposal;
 
-    // 接続線にproposalIdを設定
-    await prisma.cardConnection.updateMany({
-      where: {
-        tripPlanId,
-        AND: [
-          { fromCardId: { in: proposal.cardIds } },
-          { toCardId: { in: proposal.cardIds } },
-        ],
-      },
-      data: {
-        proposalId: savedProposal.id,
-      },
-    });
+    if (matchingProposal) {
+      // ★ 既存プラン案が見つかった場合 → 更新のみ（名前・色は保持）
+      console.log('既存プラン案を更新:', matchingProposal.name);
+      usedExistingIds.add(matchingProposal.id);
 
-    // メタ情報の計算
-    const totalBudget = await prisma.canvasActivityCard.aggregate({
-      where: { id: { in: proposal.cardIds } },
-      _sum: { cost: true },
-    });
+      // ProposalActivityを更新（順序が変わっている可能性があるため）
+      await prisma.proposalActivity.deleteMany({
+        where: { proposalId: matchingProposal.id },
+      });
 
-    const totalDistanceKm = await prisma.cardConnection.aggregate({
-      where: {
-        proposalId: savedProposal.id,
-      },
-      _sum: { distanceKm: true },
-    });
+      await prisma.proposalActivity.createMany({
+        data: proposal.cardIds.map((cardId, index) => ({
+          proposalId: matchingProposal.id,
+          cardId,
+          dayNumber: null,
+          orderInDay: index,
+        })),
+      });
 
-    // プラン案を更新
-    const updatedProposal = await prisma.tripPlanProposal.update({
-      where: { id: savedProposal.id },
-      data: {
-        totalBudget: totalBudget._sum.cost,
-        activityCount: proposal.cardIds.length,
-        totalDistanceKm: totalDistanceKm._sum.distanceKm,
-      },
-      include: {
-        activities: true,
-        connections: true,
-      },
-    });
+      // 接続線のproposalIdを更新
+      await prisma.cardConnection.updateMany({
+        where: {
+          tripPlanId,
+          AND: [
+            { fromCardId: { in: proposal.cardIds } },
+            { toCardId: { in: proposal.cardIds } },
+          ],
+        },
+        data: {
+          proposalId: matchingProposal.id,
+        },
+      });
+
+      // メタ情報の再計算
+      const totalBudget = await prisma.canvasActivityCard.aggregate({
+        where: { id: { in: proposal.cardIds } },
+        _sum: { cost: true },
+      });
+
+      const totalDistanceKm = await prisma.cardConnection.aggregate({
+        where: {
+          proposalId: matchingProposal.id,
+        },
+        _sum: { distanceKm: true },
+      });
+
+      savedProposal = await prisma.tripPlanProposal.update({
+        where: { id: matchingProposal.id },
+        data: {
+          totalBudget: totalBudget._sum.cost,
+          activityCount: proposal.cardIds.length,
+          totalDistanceKm: totalDistanceKm._sum.distanceKm,
+        },
+        include: {
+          activities: true,
+          connections: true,
+        },
+      });
+    } else {
+      // ★ 既存プラン案が見つからない場合 → 新規作成
+      const proposalName = `プラン案${String.fromCharCode(65 + newProposalIndex)}`;
+      const color = colors[newProposalIndex % colors.length];
+      newProposalIndex++;
+
+      console.log('新規プラン案を作成:', proposalName);
+
+      const createdProposal = await prisma.tripPlanProposal.create({
+        data: {
+          tripPlanId,
+          name: proposalName,
+          color,
+          isOfficial: false,
+        },
+      });
+
+      // カードをプラン案に割り当て
+      await prisma.proposalActivity.createMany({
+        data: proposal.cardIds.map((cardId, index) => ({
+          proposalId: createdProposal.id,
+          cardId,
+          dayNumber: null,
+          orderInDay: index,
+        })),
+      });
+
+      // 接続線にproposalIdを設定
+      await prisma.cardConnection.updateMany({
+        where: {
+          tripPlanId,
+          AND: [
+            { fromCardId: { in: proposal.cardIds } },
+            { toCardId: { in: proposal.cardIds } },
+          ],
+        },
+        data: {
+          proposalId: createdProposal.id,
+        },
+      });
+
+      // メタ情報の計算
+      const totalBudget = await prisma.canvasActivityCard.aggregate({
+        where: { id: { in: proposal.cardIds } },
+        _sum: { cost: true },
+      });
+
+      const totalDistanceKm = await prisma.cardConnection.aggregate({
+        where: {
+          proposalId: createdProposal.id,
+        },
+        _sum: { distanceKm: true },
+      });
+
+      savedProposal = await prisma.tripPlanProposal.update({
+        where: { id: createdProposal.id },
+        data: {
+          totalBudget: totalBudget._sum.cost,
+          activityCount: proposal.cardIds.length,
+          totalDistanceKm: totalDistanceKm._sum.distanceKm,
+        },
+        include: {
+          activities: true,
+          connections: true,
+        },
+      });
+    }
 
     savedProposals.push({
-      ...updatedProposal,
-      proposalDate: updatedProposal.proposalDate?.toISOString(),
-      totalBudget: decimalToNumber(updatedProposal.totalBudget),
-      totalDistanceKm: decimalToNumber(updatedProposal.totalDistanceKm),
+      ...savedProposal,
+      proposalDate: savedProposal.proposalDate?.toISOString(),
+      totalBudget: decimalToNumber(savedProposal.totalBudget),
+      totalDistanceKm: decimalToNumber(savedProposal.totalDistanceKm),
     });
   }
 
-  // 8. 既存の正式プラン案も結果に含める
+  // 8. 使われなかった既存プラン案を削除
+  const unusedProposalIds = existingDraftProposals
+    .filter((p) => !usedExistingIds.has(p.id))
+    .map((p) => p.id);
+
+  if (unusedProposalIds.length > 0) {
+    console.log('使われなかったプラン案を削除:', unusedProposalIds.length, '件');
+    await prisma.tripPlanProposal.deleteMany({
+      where: { id: { in: unusedProposalIds } },
+    });
+  }
+
+  // 9. 既存の正式プラン案も結果に含める
   const allProposals = [
     ...existingOfficialProposals.map((p) => ({
       ...p,
