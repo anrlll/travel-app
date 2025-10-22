@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Account from './pages/Account';
+import Profile from './pages/Profile';
 import Trips from './pages/Trips';
 import CreateTrip from './pages/CreateTrip';
 import EditTrip from './pages/EditTrip';
@@ -49,6 +50,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Account />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             }
           />

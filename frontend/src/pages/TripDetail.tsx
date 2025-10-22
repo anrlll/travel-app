@@ -74,6 +74,8 @@ function TripDetail() {
   // 選択モード用の状態
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(new Set());
+  // メンバー追加フォームの展開/折り畳み状態
+  const [showAddMemberForm, setShowAddMemberForm] = useState(false);
 
   // 初回マウント時に旅行プラン詳細を取得
   useEffect(() => {
@@ -561,43 +563,64 @@ function TripDetail() {
 
                 {/* メンバー */}
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900 mb-4">メンバー管理</h2>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-bold text-gray-900">メンバー管理</h2>
+                    {isOwner && id && (
+                      <button
+                        onClick={() => setShowAddMemberForm(!showAddMemberForm)}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+                      >
+                        + メンバー追加
+                      </button>
+                    )}
+                  </div>
 
-                  {/* owner のみメンバー追加フォームを表示 */}
-                  {isOwner && id && (
-                    <AddMemberForm
-                      onAddUserMember={async (email, role) => {
-                        await tripService.addUserMember(id, email, role);
-                        // メンバー一覧を更新
-                        await fetchTripById(id);
-                      }}
-                      onAddGuestMember={async (name, email, role) => {
-                        await tripService.addGuestMember(id, name, email, role);
-                        // メンバー一覧を更新
-                        await fetchTripById(id);
-                      }}
-                    />
-                  )}
+                  <div className="flex gap-6">
+                    {/* メンバー一覧 */}
+                    {currentTrip.members && (
+                      <div className="flex-1">
+                        <MemberList
+                          members={currentTrip.members}
+                          currentUserRole={isOwner ? 'owner' : undefined}
+                          onDeleteMember={async (memberId) => {
+                            if (!id) return;
+                            await tripService.deleteMember(id, memberId);
+                            // メンバー一覧を更新
+                            await fetchTripById(id);
+                          }}
+                          onChangeRole={async (memberId, newRole) => {
+                            if (!id) return;
+                            await tripService.changeRole(id, memberId, newRole);
+                            // メンバー一覧を更新
+                            await fetchTripById(id);
+                          }}
+                          showAddButton={false}
+                          onShowAddForm={() => setShowAddMemberForm(!showAddMemberForm)}
+                        />
+                      </div>
+                    )}
 
-                  {/* メンバー一覧 */}
-                  {currentTrip.members && (
-                    <MemberList
-                      members={currentTrip.members}
-                      currentUserRole={isOwner ? 'owner' : undefined}
-                      onDeleteMember={async (memberId) => {
-                        if (!id) return;
-                        await tripService.deleteMember(id, memberId);
-                        // メンバー一覧を更新
-                        await fetchTripById(id);
-                      }}
-                      onChangeRole={async (memberId, newRole) => {
-                        if (!id) return;
-                        await tripService.changeRole(id, memberId, newRole);
-                        // メンバー一覧を更新
-                        await fetchTripById(id);
-                      }}
-                    />
-                  )}
+                    {/* owner のみメンバー追加フォームを表示 */}
+                    {showAddMemberForm && isOwner && id && (
+                      <div className="w-sm p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                        <AddMemberForm
+                          existingMemberUserIds={currentTrip.members?.map((m) => m.userId).filter(Boolean) || []}
+                          onAddUserMember={async (email, role) => {
+                            await tripService.addUserMember(id, email, role);
+                            // メンバー一覧を更新
+                            await fetchTripById(id);
+                            setShowAddMemberForm(false);
+                          }}
+                          onAddGuestMember={async (name, email, role) => {
+                            await tripService.addGuestMember(id, name, email, role);
+                            // メンバー一覧を更新
+                            await fetchTripById(id);
+                            setShowAddMemberForm(false);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* タグ */}

@@ -475,3 +475,307 @@ export async function changeRole(
 
   return updatedMember;
 }
+
+// ユーザー一覧を取得（メンバー追加時に利用）
+export async function getAllUsers() {
+  const users = await prisma.user.findMany({
+    select: {
+      id: true,
+      email: true,
+      displayName: true,
+      username: true,
+    },
+    orderBy: {
+      displayName: 'asc',
+    },
+  });
+
+  return users;
+}
+
+
+/**
+ * ユーザーのフレンド一覧を取得（ステータス: accepted）
+ */
+export async function getFriends(userId: string) {
+  // ユーザーが送信/受信したフレンドリクエスト（accepted のみ）
+  const friends = await prisma.friend.findMany({
+    where: {
+      AND: [
+        {
+          status: 'accepted',
+        },
+        {
+          OR: [
+            { userId }, // ユーザーが送信したリクエスト
+            { friendUserId: userId }, // ユーザーが受信したリクエスト
+          ],
+        },
+      ],
+    },
+    select: {
+      id: true,
+      userId: true,
+      friendUserId: true,
+      user: {
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          username: true,
+        },
+      },
+      friendUser: {
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          username: true,
+        },
+      },
+      createdAt: true,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+
+  // フレンド相手を統一的に取得（userIdがcurrentUserの場合はfriendUser、friendUserIdがcurrentUserの場合はuser）
+  const normalizedFriends = friends.map((f) => ({
+    id: f.id,
+    userId: f.userId,
+    friendUserId: f.friendUserId,
+    friendUser: f.userId === userId ? f.friendUser : f.user,
+    createdAt: f.createdAt,
+  }));
+
+  return normalizedFriends;
+}
+
+/**
+ * 受け取ったフレンドリクエスト（ステータス: pending）
+ */
+export async function getPendingFriendRequests(userId: string) {
+  const requests = await prisma.friend.findMany({
+    where: {
+      friendUserId: userId,
+      status: 'pending',
+    },
+    select: {
+      id: true,
+      userId: true,
+      friendUserId: true,
+      user: {
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          username: true,
+        },
+      },
+      createdAt: true,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+
+  return requests;
+}
+
+/**
+ * 送信したフレンドリクエスト（ステータス: pending）
+ */
+export async function getSentFriendRequests(userId: string) {
+  const requests = await prisma.friend.findMany({
+    where: {
+      userId,
+      status: 'pending',
+    },
+    select: {
+      id: true,
+      userId: true,
+      friendUserId: true,
+      friendUser: {
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          username: true,
+        },
+      },
+      createdAt: true,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+
+  return requests;
+}
+
+/**
+ * フレンドリクエストを送信
+ */
+export async function sendFriendRequest(userId: string, friendUserId: string) {
+  // 同じユーザーへのリクエストを防止
+  if (userId === friendUserId) {
+    throw new Error('自分自身にリクエストを送信できません');
+  }
+
+  // 既存のリクエストをチェック（どちらの方向でも）
+  const existingRequest = await prisma.friend.findFirst({
+    where: {
+      OR: [
+        {
+          userId,
+          friendUserId,
+        },
+        {
+          userId: friendUserId,
+          friendUserId: userId,
+        },
+      ],
+    },
+  });
+
+  if (existingRequest) {
+    if (existingRequest.status === 'accepted') {
+      throw new Error('既にフレンドです');
+    }
+    throw new Error('既にリクエストが送信されています');
+  }
+
+  // 新規リクエストを作成
+  const friendRequest = await prisma.friend.create({
+    data: {
+      userId,
+      friendUserId,
+      status: 'pending',
+    },
+    select: {
+      id: true,
+      userId: true,
+      friendUserId: true,
+      status: true,
+      createdAt: true,
+    },
+  });
+
+  return friendRequest;
+}
+
+/**
+ * フレンドリクエストを受理
+ */
+export async function acceptFriendRequest(userId: string, requesterId: string) {
+  // リクエストが存在するか確認
+  const friendRequest = await prisma.friend.findFirst({
+    where: {
+      userId: requesterId,
+      friendUserId: userId,
+      status: 'pending',
+    },
+  });
+
+  if (!friendRequest) {
+    throw new Error('リクエストが見つかりません');
+  }
+
+  // リクエストを受理（ステータスをacceptedに変更するだけ）
+  const accepted = await prisma.friend.update({
+    where: {
+      id: friendRequest.id,
+    },
+    data: {
+      status: 'accepted',
+    },
+    select: {
+      id: true,
+      userId: true,
+      friendUserId: true,
+      status: true,
+      updatedAt: true,
+    },
+  });
+
+  return accepted;
+}
+
+/**
+ * フレンドリクエストを拒否
+ */
+export async function rejectFriendRequest(userId: string, requesterId: string) {
+  // リクエストが存在するか確認
+  const friendRequest = await prisma.friend.findFirst({
+    where: {
+      userId: requesterId,
+      friendUserId: userId,
+      status: 'pending',
+    },
+  });
+
+  if (!friendRequest) {
+    throw new Error('リクエストが見つかりません');
+  }
+
+  // リクエストを削除
+  await prisma.friend.delete({
+    where: {
+      id: friendRequest.id,
+    },
+  });
+
+  return { success: true };
+}
+
+/**
+ * フレンドを削除（フレンド削除時はトリップメンバーシップも削除）
+ */
+export async function removeFriend(userId: string, friendUserId: string) {
+  // ユーザーIDとフレンドIDのペアで関係を削除（どちらの方向でも）
+  const deleted = await prisma.friend.deleteMany({
+    where: {
+      OR: [
+        {
+          userId,
+          friendUserId,
+        },
+        {
+          userId: friendUserId,
+          friendUserId: userId,
+        },
+      ],
+      status: 'accepted',
+    },
+  });
+
+  if (deleted.count === 0) {
+    throw new Error('フレンド関係が見つかりません');
+  }
+
+  // このユーザーが参加しているトリップから、削除対象のフレンドを削除
+  const userTrips = await prisma.tripPlan.findMany({
+    where: {
+      members: {
+        some: {
+          userId,
+        },
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  for (const trip of userTrips) {
+    await prisma.tripPlanMember.deleteMany({
+      where: {
+        tripPlanId: trip.id,
+        userId: friendUserId,
+      },
+    });
+  }
+
+  return { success: true };
+}

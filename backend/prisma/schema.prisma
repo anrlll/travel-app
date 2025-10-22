@@ -32,6 +32,8 @@ model User {
   memories          Memory[]
   refreshTokens     RefreshToken[]
   passwordResetTokens PasswordResetToken[]
+  friendRequests    Friend[] @relation("user_friends")
+  friendOf          Friend[] @relation("friend_of")
 
   @@map("users")
 }
@@ -402,4 +404,27 @@ model Memory {
   @@index([userId])
   @@index([takenAt])
   @@map("memories")
+}
+
+// ========================================
+// フレンド管理
+// ========================================
+
+model Friend {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  friendUserId    String   @map("friend_user_id")
+  status          String   @default("pending") @map("status") // pending, accepted, rejected, blocked
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // リレーション
+  user            User     @relation("user_friends", fields: [userId], references: [id], onDelete: Cascade)
+  friendUser      User     @relation("friend_of", fields: [friendUserId], references: [id], onDelete: Cascade)
+
+  // ユニーク制約：同じペアは1つだけ
+  @@unique([userId, friendUserId], name: "unique_friendship")
+  @@index([userId])
+  @@index([friendUserId])
+  @@map("friends")
 }

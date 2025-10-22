@@ -7,6 +7,8 @@ interface MemberListProps {
   currentUserRole?: string;
   onDeleteMember: (memberId: string) => Promise<void>;
   onChangeRole: (memberId: string, newRole: string) => Promise<void>;
+  onShowAddForm?: () => void;
+  showAddButton?: boolean;
 }
 
 // 役割の日本語ラベル
@@ -22,6 +24,8 @@ export default function MemberList({
   currentUserRole,
   onDeleteMember,
   onChangeRole,
+  onShowAddForm,
+  showAddButton,
 }: MemberListProps) {
   const [isDeleting, setIsDeleting] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -70,13 +74,13 @@ export default function MemberList({
         </div>
       )}
 
+
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200">
               <th className="text-left py-2 px-3 font-semibold text-gray-700">名前</th>
               <th className="text-left py-2 px-3 font-semibold text-gray-700">役割</th>
-              <th className="text-left py-2 px-3 font-semibold text-gray-700">参加日時</th>
               {canManage && <th className="text-left py-2 px-3 font-semibold text-gray-700">操作</th>}
             </tr>
           </thead>
@@ -90,9 +94,6 @@ export default function MemberList({
                     </div>
                     {member.user?.email && (
                       <div className="text-gray-500 text-xs">{member.user.email}</div>
-                    )}
-                    {member.guestEmail && (
-                      <div className="text-gray-500 text-xs">{member.guestEmail}</div>
                     )}
                   </div>
                 </td>
@@ -111,9 +112,6 @@ export default function MemberList({
                   ) : (
                     <span className="text-gray-700">{roleLabels[member.role] || member.role}</span>
                   )}
-                </td>
-                <td className="py-3 px-3 text-gray-600">
-                  {new Date(member.joinedAt).toLocaleDateString('ja-JP')}
                 </td>
                 {canManage && (
                   <td className="py-3 px-3">

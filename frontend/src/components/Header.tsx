@@ -124,6 +124,18 @@ export default function Header() {
                       onMouseLeave={handleMouseLeave}
                     >
                       <Link
+                        to="/profile"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292m0 0H7m5-.292a4 4 0 100 5.292m0 0H7" />
+                          </svg>
+                          フレンド管理
+                        </div>
+                      </Link>
+                      <Link
                         to="/account"
                         onClick={() => setIsDropdownOpen(false)}
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"

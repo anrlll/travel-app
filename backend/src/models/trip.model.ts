@@ -138,6 +138,64 @@ export const changeRoleSchema = z.object({
     }),
 });
 
+
+// ==================== フレンド関連のスキーマ ====================
+
+/**
+ * フレンドリクエスト送信
+ */
+export interface SendFriendRequestInput {
+  friendUserId: string;
+}
+
+export const sendFriendRequestSchema = z.object({
+  friendUserId: z.string().cuid('無効なユーザーIDです'),
+});
+
+/**
+ * フレンドリクエスト受理
+ */
+export interface AcceptFriendRequestInput {
+  requesterId: string;
+}
+
+export const acceptFriendRequestSchema = z.object({
+  requesterId: z.string().cuid('無効なユーザーIDです'),
+});
+
+/**
+ * フレンドリクエスト拒否
+ */
+export interface RejectFriendRequestInput {
+  requesterId: string;
+}
+
+export const rejectFriendRequestSchema = z.object({
+  requesterId: z.string().cuid('無効なユーザーIDです'),
+});
+
+/**
+ * フレンド削除
+ */
+export interface RemoveFriendInput {
+  friendUserId: string;
+}
+
+export const removeFriendSchema = z.object({
+  friendUserId: z.string().cuid('無効なユーザーIDです'),
+});
+
+/**
+ * ユーザーID検索パラメータ
+ */
+export interface UserIdParamInput {
+  userId: string;
+}
+
+export const userIdParamSchema = z.object({
+  userId: z.string().cuid('無効なユーザーIDです'),
+});
+
 export const memberIdParamSchema = z.object({
   id: z.string().cuid('無効な旅行プランIDです'),
   memberId: z.string().cuid('無効なメンバーIDです'),

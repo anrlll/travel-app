@@ -87,3 +87,40 @@ export interface ApiResponse<T> {
   message?: string;
   details?: any;
 }
+
+// ==================== フレンド関連の型定義 ====================
+
+// ユーザー基本情報
+export interface UserBasicInfo {
+  id: string;
+  email: string;
+  displayName: string;
+  username: string;
+}
+
+// フレンド関係
+export interface Friend {
+  id: string;
+  userId: string;
+  friendUserId: string;
+  friendUser: UserBasicInfo;
+  createdAt: string;
+}
+
+// フレンドリクエスト（受信用）
+export interface PendingFriendRequest {
+  id: string;
+  userId: string;
+  friendUserId: string;
+  user: UserBasicInfo;
+  createdAt: string;
+}
+
+// フレンドリクエスト（送信用）
+export interface SentFriendRequest {
+  id: string;
+  userId: string;
+  friendUserId: string;
+  friendUser: UserBasicInfo;
+  createdAt: string;
+}

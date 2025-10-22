@@ -170,3 +170,112 @@ export const changeRole = async (
 
   return response.data.data;
 };
+
+
+// ==================== フレンド管理API ====================
+
+/**
+ * フレンド一覧を取得
+ * @param userId - 対象ユーザーID（省略時は現在のユーザー）
+ */
+export const getFriends = async (userId?: string): Promise<any[]> => {
+  const params = userId ? `?userId=${userId}` : '';
+  const response = await axios.get<ApiResponse<any[]>>(`/api/v1/friends${params}`);
+
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'フレンド一覧の取得に失敗しました');
+  }
+
+  return response.data.data || [];
+};
+
+/**
+ * 受信したフレンドリクエスト一覧を取得
+ */
+export const getPendingFriendRequests = async (): Promise<any[]> => {
+  const response = await axios.get<ApiResponse<any[]>>(
+    `/api/v1/friends/requests/pending`,
+  );
+
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'リクエスト一覧の取得に失敗しました');
+  }
+
+  return response.data.data || [];
+};
+
+/**
+ * 送信したフレンドリクエスト一覧を取得
+ */
+export const getSentFriendRequests = async (): Promise<any[]> => {
+  const response = await axios.get<ApiResponse<any[]>>(
+    `/api/v1/friends/requests/sent`,
+  );
+
+  if (!response.data.success) {
+    throw new Error(response.data.message || '送信リクエスト一覧の取得に失敗しました');
+  }
+
+  return response.data.data || [];
+};
+
+/**
+ * フレンドリクエストを送信
+ * @param friendUserId - リクエスト対象のユーザーID
+ */
+export const sendFriendRequest = async (friendUserId: string): Promise<any> => {
+  const response = await axios.post<ApiResponse<any>>(
+    `/api/v1/friends`,
+    { friendUserId },
+  );
+
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'リクエストの送信に失敗しました');
+  }
+
+  return response.data.data;
+};
+
+/**
+ * フレンドリクエストを受理
+ * @param requesterId - リクエスト送信者のユーザーID
+ */
+export const acceptFriendRequest = async (requesterId: string): Promise<any> => {
+  const response = await axios.put<ApiResponse<any>>(
+    `/api/v1/friends/${requesterId}/accept`,
+  );
+
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'リクエストの受理に失敗しました');
+  }
+
+  return response.data.data;
+};
+
+/**
+ * フレンドリクエストを拒否
+ * @param requesterId - リクエスト送信者のユーザーID
+ */
+export const rejectFriendRequest = async (requesterId: string): Promise<void> => {
+  const response = await axios.put<ApiResponse<void>>(
+    `/api/v1/friends/${requesterId}/reject`,
+  );
+
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'リクエストの拒否に失敗しました');
+  }
+};
+
+/**
+ * フレンドを削除
+ * @param friendUserId - 削除するフレンドのユーザーID
+ */
+export const removeFriend = async (friendUserId: string): Promise<void> => {
+  const response = await axios.delete<ApiResponse<void>>(
+    `/api/v1/friends/${friendUserId}`,
+  );
+
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'フレンドの削除に失敗しました');
+  }
+};
