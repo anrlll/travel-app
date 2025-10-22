@@ -5,10 +5,18 @@ import {
   updateTripSchema,
   getTripsQuerySchema,
   tripIdParamSchema,
+  addUserMemberSchema,
+  addGuestMemberSchema,
+  changeRoleSchema,
+  memberIdParamSchema,
   type CreateTripInput,
   type UpdateTripInput,
   type GetTripsQuery,
   type TripIdParam,
+  type AddUserMemberInput,
+  type AddGuestMemberInput,
+  type ChangeRoleInput,
+  type MemberIdParam,
 } from '../models/trip.model.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 
@@ -333,6 +341,259 @@ export async function tripRoutes(fastify: FastifyInstance) {
           success: false,
           error: 'InternalServerError',
           message: '旅行プラン削除中にエラーが発生しました',
+        });
+      }
+    }
+  );
+
+  // POST /api/v1/trips/:id/members/users - ユーザーメンバーを追加
+  fastify.post<{ Params: TripIdParam; Body: AddUserMemberInput }>(
+    '/:id/members/users',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.status(401).send({
+            success: false,
+            error: 'Unauthorized',
+            message: '認証が必要です',
+          });
+        }
+
+        let id: string;
+        let validatedData: AddUserMemberInput;
+
+        try {
+          ({ id } = tripIdParamSchema.parse(request.params));
+          validatedData = addUserMemberSchema.parse(request.body);
+        } catch (validationError: any) {
+          request.log.error({ validationError }, 'バリデーションエラー');
+          return reply.status(400).send({
+            success: false,
+            error: 'ValidationError',
+            message: validationError.errors?.[0]?.message || 'バリデーションエラー',
+            details: validationError.errors,
+          });
+        }
+
+        const member = await tripService.addUserMember(
+          id,
+          request.user.userId,
+          validatedData.email,
+          validatedData.role,
+        );
+
+        return reply.status(201).send({
+          success: true,
+          data: member,
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('見つかりません') || error.message.includes('既に')) {
+            return reply.status(400).send({
+              success: false,
+              error: 'ValidationError',
+              message: error.message,
+            });
+          }
+
+          request.log.error({ error }, 'ユーザーメンバー追加エラー');
+          return reply.status(400).send({
+            success: false,
+            error: 'AddMemberError',
+            message: error.message,
+          });
+        }
+
+        request.log.error({ error }, '予期しないエラー');
+        return reply.status(500).send({
+          success: false,
+          error: 'InternalServerError',
+          message: 'ユーザーメンバー追加中にエラーが発生しました',
+        });
+      }
+    }
+  );
+
+  // POST /api/v1/trips/:id/members/guests - ゲストメンバーを追加
+  fastify.post<{ Params: TripIdParam; Body: AddGuestMemberInput }>(
+    '/:id/members/guests',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.status(401).send({
+            success: false,
+            error: 'Unauthorized',
+            message: '認証が必要です',
+          });
+        }
+
+        let id: string;
+        let validatedData: AddGuestMemberInput;
+
+        try {
+          ({ id } = tripIdParamSchema.parse(request.params));
+          validatedData = addGuestMemberSchema.parse(request.body);
+        } catch (validationError: any) {
+          request.log.error({ validationError }, 'バリデーションエラー');
+          return reply.status(400).send({
+            success: false,
+            error: 'ValidationError',
+            message: validationError.errors?.[0]?.message || 'バリデーションエラー',
+            details: validationError.errors,
+          });
+        }
+
+        const member = await tripService.addGuestMember(
+          id,
+          request.user.userId,
+          validatedData.guestName,
+          validatedData.guestEmail,
+          validatedData.role,
+        );
+
+        return reply.status(201).send({
+          success: true,
+          data: member,
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('既に')) {
+            return reply.status(400).send({
+              success: false,
+              error: 'ValidationError',
+              message: error.message,
+            });
+          }
+
+          request.log.error({ error }, 'ゲストメンバー追加エラー');
+          return reply.status(400).send({
+            success: false,
+            error: 'AddMemberError',
+            message: error.message,
+          });
+        }
+
+        request.log.error({ error }, '予期しないエラー');
+        return reply.status(500).send({
+          success: false,
+          error: 'InternalServerError',
+          message: 'ゲストメンバー追加中にエラーが発生しました',
+        });
+      }
+    }
+  );
+
+  // DELETE /api/v1/trips/:id/members/:memberId - メンバーを削除
+  fastify.delete<{ Params: MemberIdParam }>(
+    '/:id/members/:memberId',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.status(401).send({
+            success: false,
+            error: 'Unauthorized',
+            message: '認証が必要です',
+          });
+        }
+
+        const { id, memberId } = memberIdParamSchema.parse(request.params);
+
+        await tripService.deleteMember(id, memberId, request.user.userId);
+
+        return reply.status(200).send({
+          success: true,
+          message: 'メンバーを削除しました',
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('オーナーのみ') || error.message.includes('見つかりません')) {
+            return reply.status(403).send({
+              success: false,
+              error: 'AuthorizationError',
+              message: error.message,
+            });
+          }
+
+          request.log.error({ error }, 'メンバー削除エラー');
+          return reply.status(400).send({
+            success: false,
+            error: 'DeleteMemberError',
+            message: error.message,
+          });
+        }
+
+        request.log.error({ error }, '予期しないエラー');
+        return reply.status(500).send({
+          success: false,
+          error: 'InternalServerError',
+          message: 'メンバー削除中にエラーが発生しました',
+        });
+      }
+    }
+  );
+
+  // PUT /api/v1/trips/:id/members/:memberId/role - メンバーの役割を変更
+  fastify.put<{ Params: MemberIdParam; Body: ChangeRoleInput }>(
+    '/:id/members/:memberId/role',
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.status(401).send({
+            success: false,
+            error: 'Unauthorized',
+            message: '認証が必要です',
+          });
+        }
+
+        const { id, memberId } = memberIdParamSchema.parse(request.params);
+        const validatedData = changeRoleSchema.parse(request.body);
+
+        const member = await tripService.changeRole(
+          id,
+          memberId,
+          request.user.userId,
+          validatedData.role,
+        );
+
+        return reply.status(200).send({
+          success: true,
+          data: member,
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('オーナーのみ') || error.message.includes('見つかりません')) {
+            return reply.status(403).send({
+              success: false,
+              error: 'AuthorizationError',
+              message: error.message,
+            });
+          }
+
+          request.log.error({ error }, '役割変更エラー');
+          return reply.status(400).send({
+            success: false,
+            error: 'ChangeRoleError',
+            message: error.message,
+          });
+        }
+
+        request.log.error({ error }, '予期しないエラー');
+        return reply.status(500).send({
+          success: false,
+          error: 'InternalServerError',
+          message: '役割変更中にエラーが発生しました',
         });
       }
     }

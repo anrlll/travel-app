@@ -84,3 +84,89 @@ export const deleteTrip = async (id: string): Promise<void> => {
     throw new Error(response.data.message || '旅行プランの削除に失敗しました');
   }
 };
+
+/**
+ * ユーザーメンバーを追加
+ * @param tripId - 旅行プランID
+ * @param email - メールアドレス
+ * @param role - 役割
+ */
+export const addUserMember = async (
+  tripId: string,
+  email: string,
+  role: string,
+): Promise<any> => {
+  const response = await axios.post<ApiResponse<any>>(
+    `${API_BASE_PATH}/${tripId}/members/users`,
+    { email, role },
+  );
+
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.message || 'メンバーの追加に失敗しました');
+  }
+
+  return response.data.data;
+};
+
+/**
+ * ゲストメンバーを追加
+ * @param tripId - 旅行プランID
+ * @param guestName - ゲスト名
+ * @param guestEmail - ゲストメール
+ * @param role - 役割
+ */
+export const addGuestMember = async (
+  tripId: string,
+  guestName: string,
+  guestEmail: string,
+  role: string,
+): Promise<any> => {
+  const response = await axios.post<ApiResponse<any>>(
+    `${API_BASE_PATH}/${tripId}/members/guests`,
+    { guestName, guestEmail, role },
+  );
+
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.message || 'ゲストメンバーの追加に失敗しました');
+  }
+
+  return response.data.data;
+};
+
+/**
+ * メンバーを削除
+ * @param tripId - 旅行プランID
+ * @param memberId - メンバーID
+ */
+export const deleteMember = async (tripId: string, memberId: string): Promise<void> => {
+  const response = await axios.delete<ApiResponse<void>>(
+    `${API_BASE_PATH}/${tripId}/members/${memberId}`,
+  );
+
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'メンバーの削除に失敗しました');
+  }
+};
+
+/**
+ * メンバーの役割を変更
+ * @param tripId - 旅行プランID
+ * @param memberId - メンバーID
+ * @param role - 新しい役割
+ */
+export const changeRole = async (
+  tripId: string,
+  memberId: string,
+  role: string,
+): Promise<any> => {
+  const response = await axios.put<ApiResponse<any>>(
+    `${API_BASE_PATH}/${tripId}/members/${memberId}/role`,
+    { role },
+  );
+
+  if (!response.data.success || !response.data.data) {
+    throw new Error(response.data.message || '役割の変更に失敗しました');
+  }
+
+  return response.data.data;
+};

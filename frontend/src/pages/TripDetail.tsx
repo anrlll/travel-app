@@ -5,6 +5,7 @@ import { ja } from 'date-fns/locale';
 import { useTripStore } from '../stores/tripStore';
 import { useActivityStore } from '../stores/activityStore';
 import { useAuthStore } from '../stores/authStore';
+import * as tripService from '../services/tripService';
 import Header from '../components/Header';
 import ActivityCard from '../components/ActivityCard';
 import ActivityForm from '../components/ActivityForm';
@@ -12,6 +13,8 @@ import BudgetSummary from '../components/BudgetSummary';
 import BudgetManager from '../components/BudgetManager';
 import Button from '../components/Button';
 import TransportCard from '../components/TransportCard';
+import MemberList from '../components/MemberList';
+import AddMemberForm from '../components/AddMemberForm';
 import type { Activity, CreateActivityData } from '../types/activity';
 
 // ステータスバッジのスタイル
@@ -48,8 +51,6 @@ function TripDetail() {
     fetchActivities,
     fetchParticipants,
     fetchTransport,
-    addParticipant,
-    removeParticipant,
     setTransport,
     deleteTransport,
     createActivity,
@@ -559,23 +560,45 @@ function TripDetail() {
                 )}
 
                 {/* メンバー */}
-                {currentTrip.members && currentTrip.members.length > 0 && (
-                  <div>
-                    <h2 className="text-lg font-bold text-gray-900 mb-2">メンバー</h2>
-                    <div className="space-y-2">
-                      {currentTrip.members.map((member) => (
-                        <div key={member.id} className="flex items-center justify-between">
-                          <span className="text-gray-700">
-                            {member.user?.displayName || member.user?.username || member.guestName || 'ユーザー'}
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            {member.role === 'owner' ? 'オーナー' : member.role === 'editor' ? 'エディター' : 'ビューワー'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 mb-4">メンバー管理</h2>
+
+                  {/* owner のみメンバー追加フォームを表示 */}
+                  {isOwner && id && (
+                    <AddMemberForm
+                      onAddUserMember={async (email, role) => {
+                        await tripService.addUserMember(id, email, role);
+                        // メンバー一覧を更新
+                        await fetchTripById(id);
+                      }}
+                      onAddGuestMember={async (name, email, role) => {
+                        await tripService.addGuestMember(id, name, email, role);
+                        // メンバー一覧を更新
+                        await fetchTripById(id);
+                      }}
+                    />
+                  )}
+
+                  {/* メンバー一覧 */}
+                  {currentTrip.members && (
+                    <MemberList
+                      members={currentTrip.members}
+                      currentUserRole={isOwner ? 'owner' : undefined}
+                      onDeleteMember={async (memberId) => {
+                        if (!id) return;
+                        await tripService.deleteMember(id, memberId);
+                        // メンバー一覧を更新
+                        await fetchTripById(id);
+                      }}
+                      onChangeRole={async (memberId, newRole) => {
+                        if (!id) return;
+                        await tripService.changeRole(id, memberId, newRole);
+                        // メンバー一覧を更新
+                        await fetchTripById(id);
+                      }}
+                    />
+                  )}
+                </div>
 
                 {/* タグ */}
                 {currentTrip.tags && currentTrip.tags.length > 0 && (
@@ -811,20 +834,6 @@ function TripDetail() {
                       setShowActivityForm(false);
                       setEditingActivity(null);
                     }}
-                    onAddParticipant={
-                      editingActivity
-                        ? async (memberId) => {
-                            await addParticipant(editingActivity.id, memberId);
-                          }
-                        : undefined
-                    }
-                    onRemoveParticipant={
-                      editingActivity
-                        ? async (memberId) => {
-                            await removeParticipant(editingActivity.id, memberId);
-                          }
-                        : undefined
-                    }
                     onSetTransport={
                       editingActivity
                         ? async (data) => {

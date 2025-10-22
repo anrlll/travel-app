@@ -282,3 +282,196 @@ export async function deleteTrip(tripId: string, userId: string): Promise<void> 
     where: { id: tripId },
   });
 }
+
+// メンバー管理関数
+
+// ユーザーメンバーを追加
+export async function addUserMember(
+  tripId: string,
+  userId: string,
+  email: string,
+  role: string,
+) {
+  // owner権限確認
+  const currentMember = await prisma.tripPlanMember.findFirst({
+    where: {
+      tripPlanId: tripId,
+      userId,
+    },
+  });
+
+  if (!currentMember || currentMember.role !== 'owner') {
+    throw new Error('オーナーのみメンバーを追加できます');
+  }
+
+  // メール情報からユーザーを検索
+  const targetUser = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (!targetUser) {
+    throw new Error(`メールアドレス "${email}" のユーザーが見つかりません`);
+  }
+
+  // 既に追加されていないか確認
+  const existingMember = await prisma.tripPlanMember.findFirst({
+    where: {
+      tripPlanId: tripId,
+      userId: targetUser.id,
+    },
+  });
+
+  if (existingMember) {
+    throw new Error('このユーザーは既にメンバーに追加されています');
+  }
+
+  // メンバーを追加
+  const member = await prisma.tripPlanMember.create({
+    data: {
+      tripPlanId: tripId,
+      userId: targetUser.id,
+      role,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          username: true,
+        },
+      },
+    },
+  });
+
+  return member;
+}
+
+// ゲストメンバーを追加
+export async function addGuestMember(
+  tripId: string,
+  userId: string,
+  guestName: string,
+  guestEmail: string,
+  role: string,
+) {
+  // owner権限確認
+  const currentMember = await prisma.tripPlanMember.findFirst({
+    where: {
+      tripPlanId: tripId,
+      userId,
+    },
+  });
+
+  if (!currentMember || currentMember.role !== 'owner') {
+    throw new Error('オーナーのみメンバーを追加できます');
+  }
+
+  // メールアドレスが既に登録されていないか確認
+  const existingGuest = await prisma.tripPlanMember.findFirst({
+    where: {
+      tripPlanId: tripId,
+      guestEmail,
+    },
+  });
+
+  if (existingGuest) {
+    throw new Error('このメールアドレスは既に登録されています');
+  }
+
+  // ゲストメンバーを追加
+  const member = await prisma.tripPlanMember.create({
+    data: {
+      tripPlanId: tripId,
+      guestName,
+      guestEmail,
+      role,
+    },
+  });
+
+  return member;
+}
+
+// メンバーを削除
+export async function deleteMember(tripId: string, memberId: string, userId: string) {
+  // 削除対象のメンバーを確認
+  const member = await prisma.tripPlanMember.findUnique({
+    where: { id: memberId },
+  });
+
+  if (!member) {
+    throw new Error('メンバーが見つかりません');
+  }
+
+  if (member.tripPlanId !== tripId) {
+    throw new Error('このメンバーは指定された旅行プランに属していません');
+  }
+
+  // owner のみが削除可能
+  const currentMember = await prisma.tripPlanMember.findFirst({
+    where: {
+      tripPlanId,
+      userId,
+    },
+  });
+
+  if (!currentMember || currentMember.role !== 'owner') {
+    throw new Error('オーナーのみメンバーを削除できます');
+  }
+
+  // メンバーを削除
+  await prisma.tripPlanMember.delete({
+    where: { id: memberId },
+  });
+}
+
+// メンバーの役割を変更
+export async function changeRole(
+  tripId: string,
+  memberId: string,
+  userId: string,
+  newRole: string,
+) {
+  // 変更対象のメンバーを確認
+  const member = await prisma.tripPlanMember.findUnique({
+    where: { id: memberId },
+  });
+
+  if (!member) {
+    throw new Error('メンバーが見つかりません');
+  }
+
+  if (member.tripPlanId !== tripId) {
+    throw new Error('このメンバーは指定された旅行プランに属していません');
+  }
+
+  // owner のみが役割を変更可能
+  const currentMember = await prisma.tripPlanMember.findFirst({
+    where: {
+      tripPlanId,
+      userId,
+    },
+  });
+
+  if (!currentMember || currentMember.role !== 'owner') {
+    throw new Error('オーナーのみメンバーの役割を変更できます');
+  }
+
+  // 役割を変更
+  const updatedMember = await prisma.tripPlanMember.update({
+    where: { id: memberId },
+    data: { role: newRole },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          username: true,
+        },
+      },
+    },
+  });
+
+  return updatedMember;
+}

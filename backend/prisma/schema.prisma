@@ -103,7 +103,7 @@ model TripPlanMember {
   userId          String?  @map("user_id")
   guestName       String?  @map("guest_name")
   guestEmail      String?  @map("guest_email")
-  role            String   @default("member") // owner, editor, viewer, member
+  role            String   @default("viewer") // owner, editor, viewer
   joinedAt        DateTime @default(now()) @map("joined_at")
 
   // リレーション

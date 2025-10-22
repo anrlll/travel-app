@@ -55,8 +55,6 @@ interface ActivityFormProps {
   transport?: ActivityTransport | null;
   onSubmit: (data: CreateActivityData) => Promise<void>;
   onCancel: () => void;
-  onAddParticipant?: (memberId: string) => Promise<void>;
-  onRemoveParticipant?: (memberId: string) => Promise<void>;
   onSetTransport?: (data: TransportData) => Promise<void>;
   onDeleteTransport?: () => Promise<void>;
 }
@@ -70,8 +68,6 @@ function ActivityForm({
   transport,
   onSubmit,
   onCancel,
-  onAddParticipant,
-  onRemoveParticipant,
   onSetTransport,
   onDeleteTransport,
 }: ActivityFormProps) {
@@ -175,26 +171,6 @@ function ActivityForm({
       );
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  // 参加者追加
-  const handleAddParticipant = async (memberId: string) => {
-    if (!onAddParticipant) return;
-    try {
-      await onAddParticipant(memberId);
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : '参加者の追加に失敗しました');
-    }
-  };
-
-  // 参加者削除
-  const handleRemoveParticipant = async (memberId: string) => {
-    if (!onRemoveParticipant) return;
-    try {
-      await onRemoveParticipant(memberId);
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : '参加者の削除に失敗しました');
     }
   };
 
@@ -371,70 +347,9 @@ function ActivityForm({
           {errors.notes && <p className="text-red-500 text-sm mt-1">{errors.notes.message}</p>}
         </div>
 
-        {/* 参加者・移動手段管理（編集モードのみ） */}
+        {/* 移動手段管理（編集モードのみ） */}
         {activity && (
           <div className="mb-6 border-t pt-6">
-            {/* 参加者管理 */}
-            <div className="mb-6">
-              <h4 className="text-lg font-semibold text-gray-900 mb-3">参加者</h4>
-
-              {/* 現在の参加者リスト */}
-              {participants.length > 0 && (
-                <div className="mb-3">
-                  <div className="flex flex-wrap gap-2">
-                    {participants.map((participant) => (
-                      <div
-                        key={participant.id}
-                        className="flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full"
-                      >
-                        <span>
-                          {participant.member.user?.displayName ||
-                            participant.member.guestName ||
-                            '不明'}
-                        </span>
-                        <Button
-                          type="button"
-                          onClick={() => handleRemoveParticipant(participant.tripPlanMemberId)}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          ✕
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 参加者追加 */}
-              {availableMembers.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    参加者を追加
-                  </label>
-                  <select
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        handleAddParticipant(e.target.value);
-                        e.target.value = '';
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">メンバーを選択...</option>
-                    {availableMembers.map((member) => (
-                      <option key={member.id} value={member.id}>
-                        {member.user?.displayName || member.guestName || '不明'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {participants.length === 0 && availableMembers.length === 0 && (
-                <p className="text-gray-500 text-sm">参加可能なメンバーがいません</p>
-              )}
-            </div>
-
             {/* 移動手段管理 */}
             <div>
               <h4 className="text-lg font-semibold text-gray-900 mb-3">移動手段</h4>

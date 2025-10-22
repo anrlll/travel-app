@@ -104,9 +104,52 @@ export const tripIdParamSchema = z.object({
   id: z.string().cuid('無効な旅行プランIDです'),
 });
 
+// メンバー管理のバリデーション
+export const addUserMemberSchema = z.object({
+  email: z
+    .string()
+    .email('有効なメールアドレスを入力してください'),
+  role: z
+    .enum(['owner', 'editor', 'viewer'], {
+      errorMap: () => ({ message: '役割は owner, editor, viewer のいずれかです' }),
+    })
+    .default('viewer'),
+});
+
+export const addGuestMemberSchema = z.object({
+  guestName: z
+    .string()
+    .min(1, 'ゲスト名は必須です')
+    .max(100, 'ゲスト名は100文字以内で入力してください'),
+  guestEmail: z
+    .string()
+    .email('有効なメールアドレスを入力してください'),
+  role: z
+    .enum(['owner', 'editor', 'viewer'], {
+      errorMap: () => ({ message: '役割は owner, editor, viewer のいずれかです' }),
+    })
+    .default('viewer'),
+});
+
+export const changeRoleSchema = z.object({
+  role: z
+    .enum(['owner', 'editor', 'viewer'], {
+      errorMap: () => ({ message: '役割は owner, editor, viewer のいずれかです' }),
+    }),
+});
+
+export const memberIdParamSchema = z.object({
+  id: z.string().cuid('無効な旅行プランIDです'),
+  memberId: z.string().cuid('無効なメンバーIDです'),
+});
+
 // 型定義のエクスポート
 export type Destination = z.infer<typeof destinationSchema>;
 export type CreateTripInput = z.infer<typeof createTripSchema>;
 export type UpdateTripInput = z.infer<typeof updateTripSchema>;
 export type GetTripsQuery = z.infer<typeof getTripsQuerySchema>;
 export type TripIdParam = z.infer<typeof tripIdParamSchema>;
+export type AddUserMemberInput = z.infer<typeof addUserMemberSchema>;
+export type AddGuestMemberInput = z.infer<typeof addGuestMemberSchema>;
+export type ChangeRoleInput = z.infer<typeof changeRoleSchema>;
+export type MemberIdParam = z.infer<typeof memberIdParamSchema>;
