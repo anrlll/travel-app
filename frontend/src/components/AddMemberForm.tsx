@@ -183,7 +183,7 @@ export default function AddMemberForm({ onAddUserMember, onAddGuestMember, exist
                   return (
                     <>
                       {availableFriends.length === 0 ? (
-                        <div className="py-3 text-center text-gray-600 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                        <div className="py-2 text-center text-gray-600 bg-blue-50 border border-blue-200 rounded-lg text-sm">
                           すべてのフレンドがメンバーに追加済みです
                         </div>
                       ) : (
@@ -256,19 +256,6 @@ export default function AddMemberForm({ onAddUserMember, onAddGuestMember, exist
               disabled={isLoading}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
             />
-          </div>
-
-          <div>
-            <select
-              value={guestRole}
-              onChange={(e) => setGuestRole(e.target.value)}
-              disabled={isLoading}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-            >
-              <option value="viewer">ビューアー</option>
-              <option value="editor">エディター</option>
-              <option value="owner">オーナー</option>
-            </select>
           </div>
 
           <div className="flex justify-end">
