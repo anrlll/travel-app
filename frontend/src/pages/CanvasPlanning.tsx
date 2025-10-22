@@ -608,7 +608,7 @@ const CanvasPlanningInner: React.FC = () => {
         const newConnection = await createConnection(tripId, {
           fromCardId: connection.source,
           toCardId: connection.target,
-          transportType: 'walk', // デフォルト値を設定
+          transportType: 'unset', // デフォルト値を未設定に
         });
 
         // 新しいエッジを直接追加
@@ -631,10 +631,6 @@ const CanvasPlanningInner: React.FC = () => {
         };
 
         setEdges((eds) => [...eds, newEdge]);
-
-        // 接続線編集ダイアログを自動で開く（ユーザーが移動手段を確認・編集できるように）
-        setEditingConnection(newConnection);
-        setIsConnectionEditOpen(true);
 
         // ビューポートを復元
         requestAnimationFrame(() => {
