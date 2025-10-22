@@ -394,35 +394,42 @@ export async function addGuestMember(
 
 // メンバーを削除
 export async function deleteMember(tripId: string, memberId: string, userId: string) {
-  // 削除対象のメンバーを確認
-  const member = await prisma.tripPlanMember.findUnique({
-    where: { id: memberId },
-  });
+  try {
+    // 削除対象のメンバーを確認
+    const member = await prisma.tripPlanMember.findUnique({
+      where: { id: memberId },
+    });
 
-  if (!member) {
-    throw new Error('メンバーが見つかりません');
+    if (!member) {
+      throw new Error('メンバーが見つかりません');
+    }
+
+    if (member.tripPlanId !== tripId) {
+      throw new Error('このメンバーは指定された旅行プランに属していません');
+    }
+
+    // owner のみが削除可能
+    const currentMember = await prisma.tripPlanMember.findFirst({
+      where: {
+        tripPlanId: tripId,
+        userId,
+      },
+    });
+
+    if (!currentMember || currentMember.role !== 'owner') {
+      throw new Error('オーナーのみメンバーを削除できます');
+    }
+
+    // メンバーを削除
+    await prisma.tripPlanMember.delete({
+      where: { id: memberId },
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('メンバー削除中にエラーが発生しました');
   }
-
-  if (member.tripPlanId !== tripId) {
-    throw new Error('このメンバーは指定された旅行プランに属していません');
-  }
-
-  // owner のみが削除可能
-  const currentMember = await prisma.tripPlanMember.findFirst({
-    where: {
-      tripPlanId,
-      userId,
-    },
-  });
-
-  if (!currentMember || currentMember.role !== 'owner') {
-    throw new Error('オーナーのみメンバーを削除できます');
-  }
-
-  // メンバーを削除
-  await prisma.tripPlanMember.delete({
-    where: { id: memberId },
-  });
 }
 
 // メンバーの役割を変更
@@ -448,7 +455,7 @@ export async function changeRole(
   // owner のみが役割を変更可能
   const currentMember = await prisma.tripPlanMember.findFirst({
     where: {
-      tripPlanId,
+      tripPlanId: tripId,
       userId,
     },
   });

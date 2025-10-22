@@ -607,7 +607,7 @@ function TripDetail() {
 
                     {/* owner のみメンバー追加フォーム */}
                     {isOwner && id && (
-                      <div className="w-80 py-2 px-4 bg-gray-50 border border-gray-200 rounded-lg">
+                      <div className="w-80 py-4 px-4 bg-gray-50 border border-gray-200 rounded-lg">
                         <AddMemberForm
                           existingMemberUserIds={currentTrip.members?.map((m) => m.userId).filter((id): id is string => Boolean(id)) || []}
                           onAddUserMember={async (email, role) => {
