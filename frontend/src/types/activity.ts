@@ -150,7 +150,7 @@ export interface ActivityParticipant {
 /**
  * 移動手段タイプ
  */
-export type TransportType = 'walk' | 'car' | 'train' | 'bus' | 'plane' | 'other';
+export type TransportType = 'unset' | 'walk' | 'car' | 'train' | 'bus' | 'plane' | 'other';
 
 /**
  * アクティビティ移動手段型
@@ -183,6 +183,7 @@ export interface TransportData {
  * 移動手段タイプラベルマッピング
  */
 export const transportTypeLabels: Record<TransportType, string> = {
+  unset: '未設定',
   walk: '徒歩',
   car: '車',
   train: '電車',
@@ -195,6 +196,7 @@ export const transportTypeLabels: Record<TransportType, string> = {
  * 移動手段タイプアイコンマッピング
  */
 export const transportTypeIcons: Record<TransportType, string> = {
+  unset: '❓',
   walk: '🚶',
   car: '🚗',
   train: '🚃',

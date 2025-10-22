@@ -664,7 +664,8 @@ const CanvasPlanningInner: React.FC = () => {
       const visibleCanvasWidth = bounds.width - proposalPanelWidth;
 
       // 実際のキャンバス表示エリアの中央（パネル幅分をオフセット）
-      const centerX = proposalPanelWidth + visibleCanvasWidth / 2;
+      // 200px左に寄せるため、-300を追加　無理やり中央に寄せているのでいつか直したい
+      const centerX = proposalPanelWidth + visibleCanvasWidth / 2 - 300;
       const centerY = bounds.height / 2;
 
       // ReactFlowのprojectメソッドを使用してスクリーン座標をフロー座標に変換
@@ -675,8 +676,8 @@ const CanvasPlanningInner: React.FC = () => {
 
       // カードが重ならないようにランダムなオフセットを追加
       const randomOffset = {
-        x: (Math.random() - 0.5) * 200, // -100 ~ +100
-        y: (Math.random() - 0.5) * 200, // -100 ~ +100
+        x: (Math.random() - 0.5) * 10, // -10 ~ +10
+        y: (Math.random() - 0.5) * 10, // -10 ~ +10
       };
 
       const finalPosition = {

@@ -172,7 +172,7 @@ model TripPlanActivityParticipant {
 model TripPlanActivityTransport {
   id                String           @id @default(cuid())
   tripPlanActivityId String          @map("trip_plan_activity_id")
-  transportType     String           @map("transport_type") // walk, car, train, bus, plane, other
+  transportType     String           @default("unset") @map("transport_type") // unset, walk, car, train, bus, plane, other
   durationMinutes   Int?             @map("duration_minutes")
   distanceKm        Decimal?         @map("distance_km") @db.Decimal(10, 2)
   cost              Decimal?         @db.Decimal(10, 2)
@@ -235,7 +235,7 @@ model CardConnection {
   toCardId        String   @map("to_card_id")
 
   // 移動情報
-  transportType   String?  @map("transport_type") // walk, car, train, bus, plane, other
+  transportType   String?  @default("unset") @map("transport_type") // unset, walk, car, train, bus, plane, other
   durationMinutes Int?     @map("duration_minutes")
   distanceKm      Decimal? @map("distance_km") @db.Decimal(8, 2)
   cost            Decimal? @db.Decimal(10, 2)

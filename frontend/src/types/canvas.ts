@@ -9,7 +9,7 @@ export type ActivityType = 'sightseeing' | 'restaurant' | 'accommodation' | 'tra
 export type BudgetCategory = 'food' | 'transport' | 'accommodation' | 'sightseeing' | 'other';
 
 // 交通手段
-export type TransportType = 'walk' | 'car' | 'train' | 'bus' | 'plane' | 'other';
+export type TransportType = 'unset' | 'walk' | 'car' | 'train' | 'bus' | 'plane' | 'other';
 
 // カスタム位置情報
 export interface CustomLocation {
@@ -219,6 +219,7 @@ export const budgetCategoryLabels: Record<BudgetCategory, string> = {
 
 // 交通手段のラベル
 export const transportTypeLabels: Record<TransportType, string> = {
+  unset: '未設定',
   walk: '徒歩',
   car: '車',
   train: '電車',
@@ -238,6 +239,7 @@ export const activityTypeIcons: Record<ActivityType, string> = {
 
 // 交通手段のアイコン
 export const transportTypeIcons: Record<TransportType, string> = {
+  unset: '❓',
   walk: '🚶',
   car: '🚗',
   train: '🚆',

@@ -119,7 +119,7 @@ export const updateCardPositionSchema = z.object({
 export const createConnectionSchema = z.object({
   fromCardId: z.string(),
   toCardId: z.string(),
-  transportType: z.enum(['walk', 'car', 'train', 'bus', 'plane', 'other']).optional(),
+  transportType: z.enum(['unset', 'walk', 'car', 'train', 'bus', 'plane', 'other']).optional(),
   durationMinutes: z.number().int().min(0).optional(),
   distanceKm: z.number().min(0).optional(),
   cost: z.number().min(0).optional(),

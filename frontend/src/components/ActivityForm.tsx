@@ -79,7 +79,7 @@ function ActivityForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showTransportForm, setShowTransportForm] = useState(false);
   const [transportFormData, setTransportFormData] = useState<TransportData>({
-    transportType: 'walk',
+    transportType: 'unset',
     durationMinutes: undefined,
     distanceKm: undefined,
     cost: undefined,

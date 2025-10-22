@@ -26,7 +26,7 @@ export const ConnectionEditDialog: React.FC<ConnectionEditDialogProps> = ({
   onClose,
   onSave,
 }) => {
-  const [transportType, setTransportType] = useState<string>('walk');
+  const [transportType, setTransportType] = useState<string>('unset');
   const [durationMinutes, setDurationMinutes] = useState<string>('');
   const [distanceKm, setDistanceKm] = useState<string>('');
   const [cost, setCost] = useState<string>('');
@@ -35,7 +35,7 @@ export const ConnectionEditDialog: React.FC<ConnectionEditDialogProps> = ({
   // 接続情報が変更されたらフォームを更新
   useEffect(() => {
     if (connection) {
-      setTransportType(connection.transportType || 'walk');
+      setTransportType(connection.transportType || 'unset');
       setDurationMinutes(connection.durationMinutes?.toString() || '');
       setDistanceKm(connection.distanceKm?.toString() || '');
       setCost(connection.cost?.toString() || '');
