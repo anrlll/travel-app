@@ -150,19 +150,29 @@ const CanvasPlanningInner: React.FC = () => {
         const currentViewport = reactFlowInstance.getViewport();
         viewportRef.current = currentViewport;
 
-        await updateConnection(tripId, editingConnection.id, data);
+        // 型を適切にキャスト
+        const updateData = {
+          transportType: data.transportType as any,
+          durationMinutes: data.durationMinutes,
+          distanceKm: data.distanceKm,
+          cost: data.cost,
+        };
+
+        await updateConnection(tripId, editingConnection.id, updateData);
 
         // エッジを直接更新
         setEdges((eds) =>
           eds.map((edge) => {
-            if (edge.id === editingConnection.id) {
+            if (edge.id === editingConnection.id && edge.data) {
+              const edgeData = edge.data as Record<string, unknown>;
+              const connectionData = (edgeData.connection || {}) as Record<string, unknown>;
               return {
                 ...edge,
                 data: {
-                  ...edge.data,
+                  ...edgeData,
                   connection: {
-                    ...edge.data.connection,
-                    ...data,
+                    ...connectionData,
+                    ...updateData,
                   },
                 },
               };
@@ -598,6 +608,7 @@ const CanvasPlanningInner: React.FC = () => {
         const newConnection = await createConnection(tripId, {
           fromCardId: connection.source,
           toCardId: connection.target,
+          transportType: 'walk', // デフォルト値を設定
         });
 
         // 新しいエッジを直接追加
@@ -620,6 +631,10 @@ const CanvasPlanningInner: React.FC = () => {
         };
 
         setEdges((eds) => [...eds, newEdge]);
+
+        // 接続線編集ダイアログを自動で開く（ユーザーが移動手段を確認・編集できるように）
+        setEditingConnection(newConnection);
+        setIsConnectionEditOpen(true);
 
         // ビューポートを復元
         requestAnimationFrame(() => {

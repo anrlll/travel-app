@@ -22,3 +22,12 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* スクロールバーを非表示にするユーティリティクラス */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
+}

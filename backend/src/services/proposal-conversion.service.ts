@@ -98,6 +98,7 @@ export async function selectOfficialProposal(
     });
 
     // 4. 同じ日（dayNumber）の既存のtrip_plan_activitiesを削除
+    // 移動手段レコードもカスケード削除される
     await tx.tripPlanActivity.deleteMany({
       where: {
         tripPlanId,
@@ -133,6 +134,7 @@ export async function selectOfficialProposal(
         data: {
           tripPlanId,
           dayNumber: proposalActivity.dayNumber || calculatedDayNumber,
+          // nullish coalescingで0も有効な値として扱う
           order: proposalActivity.orderInDay ?? 0, // nullish coalescingで0も有効な値として扱う
           title: card.title,
           category: card.activityType,
@@ -167,13 +169,15 @@ export async function selectOfficialProposal(
     }
 
     // 6. card_connections → trip_plan_activity_transportに変換
+    // 移動手段は出発地点のアクティビティに割り当てる
+    // （例: A→B移動はアクティビティAに割り当てる）
     for (const connection of connections) {
-      const toActivityId = activityCardMap.get(connection.toCardId);
+      const fromActivityId = activityCardMap.get(connection.fromCardId);
 
-      if (toActivityId) {
+      if (fromActivityId) {
         await tx.tripPlanActivityTransport.create({
           data: {
-            tripPlanActivityId: toActivityId,
+            tripPlanActivityId: fromActivityId,
             transportType: connection.transportType || 'other',
             durationMinutes: connection.durationMinutes,
             distanceKm: connection.distanceKm,

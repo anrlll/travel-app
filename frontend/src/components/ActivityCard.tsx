@@ -5,10 +5,9 @@ import {
   activityCategoryLabels,
   activityCategoryColors,
   activityCategoryIcons,
-  transportTypeLabels,
-  transportTypeIcons,
 } from '../types/activity';
 import Button from './Button';
+import Tooltip from './Tooltip';
 
 interface ActivityCardProps {
   activity: Activity;
@@ -78,13 +77,6 @@ function ActivityCard({
           >
             {activity.title}
           </h4>
-          {/* キャンバス作成バッジ */}
-          {activity.isFromCanvas && (
-            <div className="mt-1 flex items-center gap-1 text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded-md px-2 py-1 w-fit">
-              <span>🖼️</span>
-              <span>キャンバスモードで作成</span>
-            </div>
-          )}
         </div>
         <span
           className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -182,82 +174,66 @@ function ActivityCard({
         </div>
       )}
 
-      {/* 移動手段 */}
-      {transport && (
-        <div className="flex items-start text-gray-600 text-sm mb-3">
-          <svg className="w-4 h-4 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 10V3L4 14h7v7l9-11h-7z"
-            />
-          </svg>
-          <div className="flex-1">
-            <span className="font-medium">
-              {transportTypeIcons[transport.transportType]} {transportTypeLabels[transport.transportType]}
-            </span>
-            {transport.durationMinutes && (
-              <span className="ml-2">（{transport.durationMinutes}分）</span>
-            )}
-            {transport.distanceKm && <span className="ml-2">（{transport.distanceKm}km）</span>}
-            {transport.cost && <span className="ml-2">¥{transport.cost.toLocaleString()}</span>}
-          </div>
-        </div>
-      )}
 
       {/* アクションボタン */}
       {canEdit && (
         <div className="mt-4 pt-3 border-t border-gray-200 space-y-2">
-          {/* キャンバス作成の場合は警告メッセージを表示 */}
-          {activity.isFromCanvas && (
-            <div className="text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded px-2 py-1.5 flex items-start gap-2">
-              <span className="text-sm">ℹ️</span>
-              <span>このアクティビティはキャンバスモードで作成されたため、順序の入れ替えと日程変更はできません。</span>
-            </div>
-          )}
-
           {/* 順序変更ボタン - キャンバス作成の場合は無効化 */}
           {(onMoveUp || onMoveDown) && (
             <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onMoveUp?.(activity.id)}
-                disabled={isFirst || activity.isFromCanvas}
-                title={activity.isFromCanvas ? 'キャンバス作成のため移動不可' : '上に移動'}
+              <Tooltip
+                content="このアクティビティはキャンバスモードで作成されたため、順序の入れ替えと日程変更はできません。"
+                disabled={!activity.isFromCanvas || isFirst}
+                position="top"
               >
-                ↑
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onMoveDown?.(activity.id)}
-                disabled={isLast || activity.isFromCanvas}
-                title={activity.isFromCanvas ? 'キャンバス作成のため移動不可' : '下に移動'}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onMoveUp?.(activity.id)}
+                  disabled={isFirst || activity.isFromCanvas}
+                >
+                  ↑
+                </Button>
+              </Tooltip>
+              <Tooltip
+                content="このアクティビティはキャンバスモードで作成されたため、順序の入れ替えと日程変更はできません。"
+                disabled={!activity.isFromCanvas || isLast}
+                position="top"
               >
-                ↓
-              </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onMoveDown?.(activity.id)}
+                  disabled={isLast || activity.isFromCanvas}
+                >
+                  ↓
+                </Button>
+              </Tooltip>
               {/* 日移動ドロップダウン - キャンバス作成の場合は無効化 */}
               {onMoveToDay && availableDays && availableDays.length > 1 && (
-                <select
-                  value={activity.dayNumber}
-                  onChange={(e) => {
-                    const newDay = parseInt(e.target.value);
-                    if (newDay !== activity.dayNumber) {
-                      onMoveToDay(activity.id, newDay);
-                    }
-                  }}
-                  disabled={activity.isFromCanvas}
-                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={activity.isFromCanvas ? 'キャンバス作成のため日程変更不可' : '日程を移動'}
+                <Tooltip
+                  content="このアクティビティはキャンバスモードで作成されたため、順序の入れ替えと日程変更はできません。"
+                  disabled={!activity.isFromCanvas}
+                  position="top"
                 >
-                  {availableDays.map((day) => (
-                    <option key={day} value={day}>
-                      {day === activity.dayNumber ? `Day ${day} (現在)` : `Day ${day}に移動`}
-                    </option>
-                  ))}
-                </select>
+                  <select
+                    value={activity.dayNumber}
+                    onChange={(e) => {
+                      const newDay = parseInt(e.target.value);
+                      if (newDay !== activity.dayNumber) {
+                        onMoveToDay(activity.id, newDay);
+                      }
+                    }}
+                    disabled={activity.isFromCanvas}
+                    className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {availableDays.map((day) => (
+                      <option key={day} value={day}>
+                        {day === activity.dayNumber ? `Day ${day} (現在)` : `Day ${day}に移動`}
+                      </option>
+                    ))}
+                  </select>
+                </Tooltip>
               )}
             </div>
           )}

@@ -58,6 +58,13 @@ export const ConnectionEditDialog: React.FC<ConnectionEditDialogProps> = ({
       onClose();
     } catch (error) {
       console.error('接続線の更新エラー:', error);
+      // エラーの詳細ログを出力
+      if (error instanceof Error) {
+        console.error('エラーメッセージ:', error.message);
+        if ('response' in error) {
+          console.error('レスポンスデータ:', (error as any).response?.data);
+        }
+      }
       alert('接続線の更新に失敗しました');
     } finally {
       setIsSaving(false);

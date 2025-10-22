@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format, differenceInDays } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -11,6 +11,7 @@ import ActivityForm from '../components/ActivityForm';
 import BudgetSummary from '../components/BudgetSummary';
 import BudgetManager from '../components/BudgetManager';
 import Button from '../components/Button';
+import TransportCard from '../components/TransportCard';
 import type { Activity, CreateActivityData } from '../types/activity';
 
 // ステータスバッジのスタイル
@@ -68,6 +69,7 @@ function TripDetail() {
   const [showActivityForm, setShowActivityForm] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [selectedDayNumber, setSelectedDayNumber] = useState<number>(1);
+  const [selectedDayTab, setSelectedDayTab] = useState<number>(1); // 日程タブで選択中の日
   // 選択モード用の状態
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(new Set());
@@ -105,6 +107,16 @@ function TripDetail() {
       });
     }
   }, [activities, participants, transports, fetchParticipants, fetchTransport]);
+
+  // 日程タブが変更されたときに、その日のアクティビティの移動手段を再取得
+  useEffect(() => {
+    if (activities.length > 0) {
+      const activitiesByDayList = activities.filter((a) => a.dayNumber === selectedDayTab);
+      activitiesByDayList.forEach((activity) => {
+        fetchTransport(activity.id).catch(console.error);
+      });
+    }
+  }, [selectedDayTab, activities, fetchTransport]);
 
   // オーナーまたはエディターかどうかを判定
   const canEdit =
@@ -632,90 +644,140 @@ function TripDetail() {
                       </Button>
                     )}
                   </div>
-                ) : activitiesLoading ? (
-                  <div className="flex justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
                 ) : (
-                  <div className="space-y-8">
-                    {days.map((dayNumber) => {
-                      const dayActivities = activitiesByDay[dayNumber] || [];
-                      const dayDate = startDate
-                        ? new Date(startDate.getTime() + (dayNumber - 1) * 24 * 60 * 60 * 1000)
-                        : null;
+                  <div>
+                    {/* 日付タブナビゲーション */}
+                    <div className="border-b border-gray-200 mb-6">
+                      <nav className="flex flex-wrap gap-2 -mb-px">
+                        {days.map((dayNumber) => {
+                          const dayDate = startDate
+                            ? new Date(startDate.getTime() + (dayNumber - 1) * 24 * 60 * 60 * 1000)
+                            : null;
 
-                      return (
-                        <div key={dayNumber} className="border border-gray-200 rounded-lg p-4">
-                          <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold text-gray-900">
-                              Day {dayNumber}
-                              {dayDate && ` - ${format(dayDate, 'M月d日（E）', { locale: ja })}`}
-                            </h3>
-                            <div className="flex gap-2">
-                              {canEdit && dayActivities.length > 0 && (
-                                <Button
-                                  onClick={() => setSelectionMode(!selectionMode)}
-                                  className={`px-4 py-2 rounded-md transition-colors text-sm ${
-                                    selectionMode
-                                      ? 'bg-gray-600 hover:bg-gray-700 text-white'
-                                      : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                                  }`}
-                                >
-                                  {selectionMode ? '選択モード終了' : '選択モード'}
-                                </Button>
-                              )}
-                              {canEdit && (
-                                <Button
-                                  onClick={() => handleAddActivity(dayNumber)}
-                                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm"
-                                >
-                                  + アクティビティを追加
-                                </Button>
-                              )}
-                            </div>
+                          return (
+                            <Button
+                              key={dayNumber}
+                              onClick={() => setSelectedDayTab(dayNumber)}
+                              className={`px-4 py-3 border-b-2 transition-colors whitespace-nowrap ${
+                                selectedDayTab === dayNumber
+                                  ? 'border-blue-600 text-blue-600 bg-blue-50'
+                                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                              }`}
+                            >
+                              <div className="text-center">
+                                <div className="font-medium">Day {dayNumber}</div>
+                                {dayDate && (
+                                  <div className="text-xs mt-1">
+                                    {format(dayDate, 'M/d（E）', { locale: ja })}
+                                  </div>
+                                )}
+                              </div>
+                            </Button>
+                          );
+                        })}
+                      </nav>
+                    </div>
+
+                    {/* 選択された日のアクティビティ表示 */}
+                    {activitiesLoading ? (
+                      <div className="flex justify-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      </div>
+                    ) : (
+                      <div>
+                        {/* 選択中の日のヘッダー */}
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className="text-2xl font-bold text-gray-900">
+                            Day {selectedDayTab}
+                            {startDate && ` - ${format(
+                              new Date(startDate.getTime() + (selectedDayTab - 1) * 24 * 60 * 60 * 1000),
+                              'M月d日（E）',
+                              { locale: ja }
+                            )}`}
+                          </h3>
+                          <div className="flex gap-2">
+                            {canEdit && (activitiesByDay[selectedDayTab]?.length || 0) > 0 && (
+                              <Button
+                                onClick={() => setSelectionMode(!selectionMode)}
+                                className={`px-4 py-2 rounded-md transition-colors text-sm ${
+                                  selectionMode
+                                    ? 'bg-gray-600 hover:bg-gray-700 text-white'
+                                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                                }`}
+                              >
+                                {selectionMode ? '選択モード終了' : '選択モード'}
+                              </Button>
+                            )}
+                            {canEdit && (
+                              <Button
+                                onClick={() => handleAddActivity(selectedDayTab)}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm"
+                              >
+                                + アクティビティを追加
+                              </Button>
+                            )}
                           </div>
-
-                          {dayActivities.length === 0 ? (
-                            <p className="text-gray-500 text-center py-8">
-                              アクティビティがありません
-                            </p>
-                          ) : (
-                            <div className="space-y-3">
-                              {dayActivities.map((activity, index) => (
-                                <div key={activity.id} className="relative">
-                                  {/* 選択チェックボックス */}
-                                  {selectionMode && (
-                                    <div className="absolute top-2 right-2 z-10">
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedActivities.has(activity.id)}
-                                        onChange={() => handleSelectActivity(activity.id)}
-                                        className="w-5 h-5 cursor-pointer"
-                                      />
-                                    </div>
-                                  )}
-                                  <ActivityCard
-                                    activity={activity}
-                                    canEdit={!!canEdit && !selectionMode}
-                                    participants={participants[activity.id]}
-                                    transport={transports[activity.id]}
-                                    onEdit={handleEditActivity}
-                                    onDelete={handleDeleteActivity}
-                                    onToggleComplete={handleToggleComplete}
-                                    isFirst={index === 0}
-                                    isLast={index === dayActivities.length - 1}
-                                    onMoveUp={handleMoveUp}
-                                    onMoveDown={handleMoveDown}
-                                    availableDays={days}
-                                    onMoveToDay={handleMoveToDay}
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          )}
                         </div>
-                      );
-                    })}
+
+                        {/* アクティビティリスト */}
+                        {(activitiesByDay[selectedDayTab]?.length || 0) === 0 ? (
+                          <p className="text-gray-500 text-center py-12 bg-gray-50 rounded-lg">
+                            アクティビティがありません
+                          </p>
+                        ) : (
+                          <div className="space-y-3">
+                            {activitiesByDay[selectedDayTab].map((activity, index) => {
+                              const nextActivity = activitiesByDay[selectedDayTab][index + 1];
+                              // 現在のアクティビティに関連付けられた移動手段を取得
+                              // （このアクティビティの終了後、次のアクティビティへの移動を表す）
+                              const activityTransport = transports[activity.id];
+
+                              return (
+                                <React.Fragment key={activity.id}>
+                                  <div className="relative">
+                                    {/* 選択チェックボックス */}
+                                    {selectionMode && (
+                                      <div className="absolute top-2 right-2 z-10">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedActivities.has(activity.id)}
+                                          onChange={() => handleSelectActivity(activity.id)}
+                                          className="w-5 h-5 cursor-pointer"
+                                        />
+                                      </div>
+                                    )}
+                                    <ActivityCard
+                                      activity={activity}
+                                      canEdit={!!canEdit && !selectionMode}
+                                      participants={participants[activity.id]}
+                                      transport={undefined}
+                                      onEdit={handleEditActivity}
+                                      onDelete={handleDeleteActivity}
+                                      onToggleComplete={handleToggleComplete}
+                                      isFirst={index === 0}
+                                      isLast={index === activitiesByDay[selectedDayTab].length - 1}
+                                      onMoveUp={handleMoveUp}
+                                      onMoveDown={handleMoveDown}
+                                      availableDays={days}
+                                      onMoveToDay={handleMoveToDay}
+                                    />
+                                  </div>
+
+                                  {/* 次のアクティビティへの移動情報 */}
+                                  {nextActivity && activityTransport && (
+                                    <TransportCard
+                                      transport={activityTransport}
+                                      fromActivity={activity}
+                                      toActivity={nextActivity}
+                                    />
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -795,8 +857,8 @@ function TripDetail() {
                 <div className="flex gap-3">
                   <Button
                     onClick={() => {
-                      const allActivitiesInView = activities.map((a) => a.id);
-                      setSelectedActivities(new Set(allActivitiesInView));
+                      const currentDayActivities = activitiesByDay[selectedDayTab]?.map((a) => a.id) || [];
+                      setSelectedActivities(new Set(currentDayActivities));
                     }}
                     className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors text-sm"
                   >

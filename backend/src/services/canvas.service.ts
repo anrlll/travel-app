@@ -298,17 +298,59 @@ export async function getConnections(tripPlanId: string, userId: string) {
 export async function updateConnection(tripPlanId: string, connectionId: string, userId: string, data: UpdateConnectionData) {
   await checkEditPermission(tripPlanId, userId);
 
+  // 接続線を更新
+  // Decimal型フィールドは文字列で渡す必要がある
   const connection = await prisma.cardConnection.update({
     where: { id: connectionId },
+    include: {
+      fromCard: true, // fromCardを取得（fromActivityIdを探すため）
+    },
     data: {
       ...(data.transportType !== undefined && { transportType: data.transportType }),
       ...(data.durationMinutes !== undefined && { durationMinutes: data.durationMinutes }),
-      ...(data.distanceKm !== undefined && { distanceKm: data.distanceKm }),
-      ...(data.cost !== undefined && { cost: data.cost }),
+      ...(data.distanceKm !== undefined && { distanceKm: new Decimal(data.distanceKm.toString()) }),
+      ...(data.cost !== undefined && { cost: new Decimal(data.cost.toString()) }),
       ...(data.routeData !== undefined && { routeData: data.routeData as any }),
       ...(data.proposalId !== undefined && { proposalId: data.proposalId }),
     },
   });
+
+  // 正式プランが確定されている場合、対応する trip_plan_activity_transport も更新
+  // fromCardに対応するtrip_plan_activityを探す
+  const fromActivity = await prisma.tripPlanActivity.findFirst({
+    where: {
+      tripPlanId,
+      canvasCardId: connection.fromCardId,
+    },
+  });
+
+  if (fromActivity) {
+    // 更新データを準備
+    const updateTransportData: any = {};
+    if (data.transportType !== undefined) updateTransportData.transportType = data.transportType;
+    if (data.durationMinutes !== undefined) updateTransportData.durationMinutes = data.durationMinutes;
+    if (data.distanceKm !== undefined) updateTransportData.distanceKm = new Decimal(data.distanceKm.toString());
+    if (data.cost !== undefined) updateTransportData.cost = new Decimal(data.cost.toString());
+    if (data.routeData !== undefined) updateTransportData.routeData = data.routeData;
+
+    // デバッグログ
+    console.log('📝 trip_plan_activity_transport 更新データ:', {
+      fromActivityId: fromActivity.id,
+      updateData: updateTransportData,
+      dataKeys: Object.keys(updateTransportData),
+    });
+
+    // trip_plan_activity_transport を更新 (存在する場合)
+    if (Object.keys(updateTransportData).length > 0) {
+      const updateResult = await prisma.tripPlanActivityTransport.updateMany({
+        where: {
+          tripPlanActivityId: fromActivity.id,
+        },
+        data: updateTransportData,
+      });
+      console.log('✅ trip_plan_activity_transport 更新結果:', updateResult);
+    }
+  }
 
   return {
     ...connection,
