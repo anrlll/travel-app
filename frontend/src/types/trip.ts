@@ -27,8 +27,9 @@ export interface Trip {
   title: string;
   description: string | null;
   destinations: Destination[];
-  startDate: string; // ISO 8601形式
-  endDate: string; // ISO 8601形式
+  startDate: string | null; // ISO 8601形式（オプション）
+  endDate: string | null; // ISO 8601形式（オプション）
+  dayCount: number | null; // 日数（オプション）
   status: TripStatus;
   tags: string[];
   notes: string | null;
@@ -42,8 +43,9 @@ export interface Trip {
 export interface CreateTripData {
   title: string;
   description?: string;
-  startDate: string; // ISO 8601形式
-  endDate: string; // ISO 8601形式
+  startDate?: string; // ISO 8601形式（オプション）
+  endDate?: string; // ISO 8601形式（オプション）
+  dayCount?: number; // 日数（オプション）
   destinations: Destination[];
   tags?: string[];
   notes?: string;
@@ -56,6 +58,7 @@ export interface UpdateTripData {
   description?: string | null;
   startDate?: string;
   endDate?: string;
+  dayCount?: number; // 日数（オプション）
   destinations?: Destination[];
   status?: TripStatus;
   tags?: string[];

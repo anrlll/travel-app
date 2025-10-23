@@ -10,23 +10,37 @@ import Textarea from '../components/Textarea';
 import type { UpdateTripData } from '../types/trip';
 
 // フォームバリデーションスキーマ
-const editTripSchema = z.object({
-  title: z.string().min(1, 'タイトルは必須です').max(255, 'タイトルは255文字以内で入力してください'),
-  description: z.string().max(2000, '説明は2000文字以内で入力してください').optional(),
-  startDate: z.string().min(1, '開始日は必須です'),
-  endDate: z.string().min(1, '終了日は必須です'),
-  destinations: z
-    .array(
-      z.object({
-        name: z.string().min(1, '目的地名は必須です'),
-      })
-    )
-    .min(1, '目的地を1つ以上追加してください'),
-  tags: z.string().optional(),
-  notes: z.string().max(5000, 'メモは5000文字以内で入力してください').optional(),
-  isPublic: z.boolean().optional(),
-  status: z.enum(['draft', 'planning', 'confirmed', 'completed', 'cancelled']).optional(),
-});
+const editTripSchema = z
+  .object({
+    title: z.string().min(1, 'タイトルは必須です').max(255, 'タイトルは255文字以内で入力してください'),
+    description: z.string().max(2000, '説明は2000文字以内で入力してください').optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    dayCount: z.string().optional(),
+    destinations: z
+      .array(
+        z.object({
+          name: z.string().min(1, '目的地名は必須です'),
+        })
+      )
+      .min(1, '目的地を1つ以上追加してください'),
+    tags: z.string().optional(),
+    notes: z.string().max(5000, 'メモは5000文字以内で入力してください').optional(),
+    isPublic: z.boolean().optional(),
+    status: z.enum(['draft', 'planning', 'confirmed', 'completed', 'cancelled']).optional(),
+  })
+  .refine(
+    (data) => {
+      // 更新時は何も指定されていない場合も許可（既存の値を保持）
+      const hasDates = data.startDate && data.endDate;
+      const hasDayCount = data.dayCount && parseInt(data.dayCount) > 0;
+      return !data.startDate || !data.endDate || hasDates || hasDayCount;
+    },
+    {
+      message: '日程か日数のいずれかを指定してください',
+      path: ['dayCount'],
+    }
+  );
 
 type EditTripFormData = z.infer<typeof editTripSchema>;
 
@@ -60,6 +74,7 @@ function EditTrip() {
       description: '',
       startDate: '',
       endDate: '',
+      dayCount: '',
       destinations: [{ name: '' }],
       tags: '',
       notes: '',
@@ -108,6 +123,7 @@ function EditTrip() {
         description: currentTrip.description || '',
         startDate,
         endDate,
+        dayCount: currentTrip.dayCount ? currentTrip.dayCount.toString() : '',
         destinations: currentTrip.destinations || [{ name: '' }],
         tags: currentTrip.tags ? currentTrip.tags.join(', ') : '',
         notes: currentTrip.notes || '',
@@ -133,12 +149,13 @@ function EditTrip() {
             .filter((tag) => tag.length > 0)
         : [];
 
-      // ISO 8601形式に変換
+      // ISO 8601形式に変換（日付が指定されている場合）
       const updateData: UpdateTripData = {
         title: data.title,
         description: data.description || undefined,
-        startDate: new Date(data.startDate).toISOString(),
-        endDate: new Date(data.endDate).toISOString(),
+        startDate: data.startDate ? new Date(data.startDate).toISOString() : undefined,
+        endDate: data.endDate ? new Date(data.endDate).toISOString() : undefined,
+        dayCount: data.dayCount ? parseInt(data.dayCount, 10) : undefined,
         destinations: data.destinations,
         tags: tags.length > 0 ? tags : undefined,
         notes: data.notes || undefined,
@@ -240,33 +257,65 @@ function EditTrip() {
           </div>
 
           {/* 日程 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div>
-              <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
-                開始日 <span className="text-red-500">*</span>
-              </label>
-              <input
-                {...register('startDate')}
-                type="date"
-                id="startDate"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              {errors.startDate && (
-                <p className="text-red-500 text-sm mt-1">{errors.startDate.message}</p>
-              )}
+          <div className="mb-6">
+            <p className="text-sm font-medium text-gray-700 mb-3">日程の設定</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
+                  開始日
+                </label>
+                <input
+                  {...register('startDate')}
+                  type="date"
+                  id="startDate"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {errors.startDate && (
+                  <p className="text-red-500 text-sm mt-1">{errors.startDate.message}</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-2">
+                  終了日
+                </label>
+                <input
+                  {...register('endDate')}
+                  type="date"
+                  id="endDate"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {errors.endDate && (
+                  <p className="text-red-500 text-sm mt-1">{errors.endDate.message}</p>
+                )}
+              </div>
             </div>
+
+            {/* または */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 h-px bg-gray-300"></div>
+              <span className="text-sm text-gray-500">または</span>
+              <div className="flex-1 h-px bg-gray-300"></div>
+            </div>
+
+            {/* 日数 */}
             <div>
-              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-2">
-                終了日 <span className="text-red-500">*</span>
+              <label htmlFor="dayCount" className="block text-sm font-medium text-gray-700 mb-2">
+                日数（日程未決定の場合）
               </label>
-              <input
-                {...register('endDate')}
-                type="date"
-                id="endDate"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              {errors.endDate && (
-                <p className="text-red-500 text-sm mt-1">{errors.endDate.message}</p>
+              <div className="flex items-center gap-2">
+                <input
+                  {...register('dayCount')}
+                  type="number"
+                  id="dayCount"
+                  min="1"
+                  max="365"
+                  className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="3"
+                />
+                <span className="text-sm text-gray-600">日間</span>
+              </div>
+              {errors.dayCount && (
+                <p className="text-red-500 text-sm mt-1">{errors.dayCount.message}</p>
               )}
             </div>
           </div>

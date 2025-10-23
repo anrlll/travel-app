@@ -9,75 +9,110 @@ export const destinationSchema = z.object({
 });
 
 // 旅行プラン作成リクエストのバリデーション
-export const createTripSchema = z.object({
-  title: z
-    .string()
-    .min(1, 'タイトルは必須です')
-    .max(255, 'タイトルは255文字以内で入力してください'),
-  description: z
-    .string()
-    .max(2000, '説明は2000文字以内で入力してください')
-    .optional(),
-  startDate: z
-    .string()
-    .datetime('有効な日時形式で入力してください（ISO 8601形式）'),
-  endDate: z
-    .string()
-    .datetime('有効な日時形式で入力してください（ISO 8601形式）'),
-  destinations: z
-    .array(destinationSchema)
-    .min(1, '目的地を1つ以上追加してください')
-    .max(20, '目的地は20個までです'),
-  tags: z
-    .array(z.string().max(50, 'タグは50文字以内で入力してください'))
-    .max(10, 'タグは10個までです')
-    .optional(),
-  notes: z
-    .string()
-    .max(5000, 'メモは5000文字以内で入力してください')
-    .optional(),
-  isPublic: z.boolean().optional().default(false),
-});
+export const createTripSchema = z
+  .object({
+    title: z
+      .string()
+      .min(1, 'タイトルは必須です')
+      .max(255, 'タイトルは255文字以内で入力してください'),
+    description: z
+      .string()
+      .max(2000, '説明は2000文字以内で入力してください')
+      .optional(),
+    startDate: z
+      .string()
+      .datetime('有効な日時形式で入力してください（ISO 8601形式）')
+      .optional(),
+    endDate: z
+      .string()
+      .datetime('有効な日時形式で入力してください（ISO 8601形式）')
+      .optional(),
+    dayCount: z
+      .number()
+      .int()
+      .min(1, '日数は1以上である必要があります')
+      .max(365, '日数は365日以内である必要があります')
+      .optional(),
+    destinations: z
+      .array(destinationSchema)
+      .min(1, '目的地を1つ以上追加してください')
+      .max(20, '目的地は20個までです'),
+    tags: z
+      .array(z.string().max(50, 'タグは50文字以内で入力してください'))
+      .max(10, 'タグは10個までです')
+      .optional(),
+    notes: z
+      .string()
+      .max(5000, 'メモは5000文字以内で入力してください')
+      .optional(),
+    isPublic: z.boolean().optional().default(false),
+  })
+  .refine(
+    (data) => (data.startDate && data.endDate) || data.dayCount,
+    {
+      message: '日程か日数のいずれかを指定してください',
+      path: ['dayCount'],
+    }
+  );
 
 // 旅行プラン更新リクエストのバリデーション
-export const updateTripSchema = z.object({
-  title: z
-    .string()
-    .min(1, 'タイトルは必須です')
-    .max(255, 'タイトルは255文字以内で入力してください')
-    .optional(),
-  description: z
-    .string()
-    .max(2000, '説明は2000文字以内で入力してください')
-    .optional()
-    .nullable(),
-  startDate: z
-    .string()
-    .datetime('有効な日時形式で入力してください（ISO 8601形式）')
-    .optional(),
-  endDate: z
-    .string()
-    .datetime('有効な日時形式で入力してください（ISO 8601形式）')
-    .optional(),
-  destinations: z
-    .array(destinationSchema)
-    .min(1, '目的地を1つ以上追加してください')
-    .max(20, '目的地は20個までです')
-    .optional(),
-  status: z
-    .enum(['draft', 'planning', 'confirmed', 'completed', 'cancelled'])
-    .optional(),
-  tags: z
-    .array(z.string().max(50, 'タグは50文字以内で入力してください'))
-    .max(10, 'タグは10個までです')
-    .optional(),
-  notes: z
-    .string()
-    .max(5000, 'メモは5000文字以内で入力してください')
-    .optional()
-    .nullable(),
-  isPublic: z.boolean().optional(),
-});
+export const updateTripSchema = z
+  .object({
+    title: z
+      .string()
+      .min(1, 'タイトルは必須です')
+      .max(255, 'タイトルは255文字以内で入力してください')
+      .optional(),
+    description: z
+      .string()
+      .max(2000, '説明は2000文字以内で入力してください')
+      .optional()
+      .nullable(),
+    startDate: z
+      .string()
+      .datetime('有効な日時形式で入力してください（ISO 8601形式）')
+      .optional(),
+    endDate: z
+      .string()
+      .datetime('有効な日時形式で入力してください（ISO 8601形式）')
+      .optional(),
+    dayCount: z
+      .number()
+      .int()
+      .min(1, '日数は1以上である必要があります')
+      .max(365, '日数は365日以内である必要があります')
+      .optional(),
+    destinations: z
+      .array(destinationSchema)
+      .min(1, '目的地を1つ以上追加してください')
+      .max(20, '目的地は20個までです')
+      .optional(),
+    status: z
+      .enum(['draft', 'planning', 'confirmed', 'completed', 'cancelled'])
+      .optional(),
+    tags: z
+      .array(z.string().max(50, 'タグは50文字以内で入力してください'))
+      .max(10, 'タグは10個までです')
+      .optional(),
+    notes: z
+      .string()
+      .max(5000, 'メモは5000文字以内で入力してください')
+      .optional()
+      .nullable(),
+    isPublic: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      // 更新時は両方指定されていない場合もある（既存の値を保持）
+      // ただし、dayCount が指定されたら日付をクリア、日付が指定されたら dayCount をクリアする意図を
+      // 入力データから判断する必要がある
+      const hasDates = data.startDate && data.endDate;
+      const hasDayCount = data.dayCount;
+      // 何も指定されていない場合は OK（既存の値を保持）
+      // 両方指定されている場合も OK（後処理で処理）
+      return true;
+    }
+  );
 
 // 旅行プラン一覧取得クエリパラメータのバリデーション
 export const getTripsQuerySchema = z.object({

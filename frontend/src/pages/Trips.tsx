@@ -104,6 +104,8 @@ function Trips() {
                   'M月d日（E）',
                   { locale: ja }
                 )}`
+              : trip.dayCount
+              ? `${trip.dayCount}日間の旅`
               : '日程未定'}
           </span>
         </div>

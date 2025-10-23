@@ -37,6 +37,7 @@ export interface TripResponse {
   destinations: any; // JSONB型
   startDate: Date | null;
   endDate: Date | null;
+  dayCount: number | null;
   status: string;
   tags: string[];
   notes: string | null;
@@ -70,8 +71,9 @@ export async function createTrip(userId: string, input: CreateTripInput): Promis
         title: input.title,
         description: input.description || null,
         destinations: input.destinations, // JSONB配列として保存
-        startDate: new Date(input.startDate),
-        endDate: new Date(input.endDate),
+        startDate: input.startDate ? new Date(input.startDate) : null,
+        endDate: input.endDate ? new Date(input.endDate) : null,
+        dayCount: input.dayCount || null,
         status: 'draft', // 初期ステータスは draft
         tags: input.tags || [],
         notes: input.notes || null,
@@ -230,8 +232,21 @@ export async function updateTrip(
 
   if (input.title !== undefined) updateData.title = input.title;
   if (input.description !== undefined) updateData.description = input.description;
-  if (input.startDate !== undefined) updateData.startDate = new Date(input.startDate);
-  if (input.endDate !== undefined) updateData.endDate = new Date(input.endDate);
+
+  // 日付が指定された場合は dayCount をクリア
+  if (input.startDate !== undefined && input.endDate !== undefined) {
+    updateData.startDate = new Date(input.startDate);
+    updateData.endDate = new Date(input.endDate);
+    updateData.dayCount = null;
+  }
+
+  // dayCount が指定された場合は日付をクリア
+  if (input.dayCount !== undefined) {
+    updateData.dayCount = input.dayCount;
+    updateData.startDate = null;
+    updateData.endDate = null;
+  }
+
   if (input.destinations !== undefined) updateData.destinations = input.destinations;
   if (input.status !== undefined) updateData.status = input.status;
   if (input.tags !== undefined) updateData.tags = input.tags;

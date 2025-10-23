@@ -59,6 +59,7 @@ model TripPlan {
   destinations    Json                 @default("[]")
   startDate       DateTime?            @map("start_date")
   endDate         DateTime?            @map("end_date")
+  dayCount        Int?                 @map("day_count")
   status          String               @default("draft")
   tags            String[]             @default([])
   notes           String?

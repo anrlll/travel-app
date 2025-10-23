@@ -398,9 +398,14 @@ function TripDetail() {
   const endDate = currentTrip.endDate ? new Date(currentTrip.endDate) : null;
 
   // 日程の日数を計算
+  // 日付が定義されている場合は差分から計算、そうでなければ dayCount を使用
   const numberOfDays =
-    startDate && endDate ? differenceInDays(endDate, startDate) + 1 : 0;
+    startDate && endDate ? differenceInDays(endDate, startDate) + 1 : (currentTrip.dayCount || 0);
   const days = numberOfDays > 0 ? Array.from({ length: numberOfDays }, (_, i) => i + 1) : [];
+
+  // 日付が定義されているかを判定
+  const isDateDefined = startDate && endDate;
+  const isDayCountDefined = !isDateDefined && currentTrip.dayCount;
 
   // 日ごとにアクティビティをグループ化
   const activitiesByDay = activities.reduce((acc, activity) => {
@@ -468,12 +473,14 @@ function TripDetail() {
               />
             </svg>
             <span>
-              {startDate && endDate
-                ? `${format(startDate, 'yyyy年M月d日（E）', { locale: ja })} 〜 ${format(
-                    endDate,
+              {isDateDefined
+                ? `${format(startDate!, 'yyyy年M月d日（E）', { locale: ja })} 〜 ${format(
+                    endDate!,
                     'M月d日（E）',
                     { locale: ja }
                   )} (${numberOfDays}日間)`
+                : isDayCountDefined
+                ? `${currentTrip.dayCount}日間の旅`
                 : '日程未定'}
             </span>
           </div>
@@ -686,6 +693,16 @@ function TripDetail() {
                             ? new Date(startDate.getTime() + (dayNumber - 1) * 24 * 60 * 60 * 1000)
                             : null;
 
+                          // 日数モードの場合は「一日目」形式で表示
+                          const getDayLabel = () => {
+                            if (isDateDefined && dayDate) {
+                              return format(dayDate, 'M/d（E）', { locale: ja });
+                            } else {
+                              const dayLabels = ['一日目', '二日目', '三日目', '四日目', '五日目', '六日目', '七日目'];
+                              return dayLabels[dayNumber - 1] || `${dayNumber}日目`;
+                            }
+                          };
+
                           return (
                             <Button
                               key={dayNumber}
@@ -697,12 +714,7 @@ function TripDetail() {
                               }`}
                             >
                               <div className="text-center">
-                                <div className="font-medium">Day {dayNumber}</div>
-                                {dayDate && (
-                                  <div className="text-xs mt-1">
-                                    {format(dayDate, 'M/d（E）', { locale: ja })}
-                                  </div>
-                                )}
+                                <div className="font-medium">{getDayLabel()}</div>
                               </div>
                             </Button>
                           );
@@ -720,12 +732,22 @@ function TripDetail() {
                         {/* 選択中の日のヘッダー */}
                         <div className="flex justify-between items-center mb-4">
                           <h3 className="text-2xl font-bold text-gray-900">
-                            Day {selectedDayTab}
-                            {startDate && ` - ${format(
-                              new Date(startDate.getTime() + (selectedDayTab - 1) * 24 * 60 * 60 * 1000),
-                              'M月d日（E）',
-                              { locale: ja }
-                            )}`}
+                            {isDateDefined && startDate ? (
+                              <>
+                                {format(
+                                  new Date(startDate.getTime() + (selectedDayTab - 1) * 24 * 60 * 60 * 1000),
+                                  'M月d日（E）',
+                                  { locale: ja }
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                {(() => {
+                                  const dayLabels = ['一日目', '二日目', '三日目', '四日目', '五日目', '六日目', '七日目'];
+                                  return dayLabels[selectedDayTab - 1] || `${selectedDayTab}日目`;
+                                })()}
+                              </>
+                            )}
                           </h3>
                           <div className="flex gap-2">
                             {canEdit && (activitiesByDay[selectedDayTab]?.length || 0) > 0 && (
