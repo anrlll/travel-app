@@ -4,8 +4,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Button from "../Button";
-import type { CanvasActivityCard, CreateCardData, ActivityType, BudgetCategory } from '../../types/canvas';
-import { activityTypeLabels, budgetCategoryLabels } from '../../types/canvas';
+import type { CanvasActivityCard, CreateCardData, ActivityType } from '../../types/canvas';
+import { activityTypeLabels, mapActivityTypeToBudgetCategory } from '../../types/canvas';
 
 interface CardEditDialogProps {
   isOpen: boolean;
@@ -31,7 +31,7 @@ export const CardEditDialog: React.FC<CardEditDialogProps> = ({
     startTime: '',
     endTime: '',
     cost: undefined,
-    budgetCategory: undefined,
+    budgetCategory: mapActivityTypeToBudgetCategory('sightseeing'),
     memo: '',
     isCollapsed: false,
     isCompleted: false,
@@ -50,7 +50,8 @@ export const CardEditDialog: React.FC<CardEditDialogProps> = ({
         startTime: card.startTime || '',
         endTime: card.endTime || '',
         cost: card.cost,
-        budgetCategory: card.budgetCategory,
+        // 既存カードの budgetCategory を使用、ない場合は activityType から自動生成
+        budgetCategory: card.budgetCategory || mapActivityTypeToBudgetCategory(card.activityType),
         memo: card.memo || '',
         isCollapsed: card.isCollapsed,
         isCompleted: card.isCompleted,
@@ -65,7 +66,7 @@ export const CardEditDialog: React.FC<CardEditDialogProps> = ({
         startTime: '',
         endTime: '',
         cost: undefined,
-        budgetCategory: undefined,
+        budgetCategory: mapActivityTypeToBudgetCategory('sightseeing'),
         memo: '',
         isCollapsed: false,
         isCompleted: false,
@@ -131,9 +132,15 @@ export const CardEditDialog: React.FC<CardEditDialogProps> = ({
             </label>
             <select
               value={formData.activityType}
-              onChange={(e) =>
-                setFormData({ ...formData, activityType: e.target.value as ActivityType })
-              }
+              onChange={(e) => {
+                const newActivityType = e.target.value as ActivityType;
+                // カテゴリが変更されたら、予算カテゴリも自動的に設定
+                setFormData({
+                  ...formData,
+                  activityType: newActivityType,
+                  budgetCategory: mapActivityTypeToBudgetCategory(newActivityType),
+                });
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             >
@@ -179,44 +186,22 @@ export const CardEditDialog: React.FC<CardEditDialogProps> = ({
             </div>
           </div>
 
-          {/* コストと予算カテゴリ */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">コスト（円）</label>
-              <input
-                type="number"
-                value={formData.cost || ''}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    cost: e.target.value ? parseFloat(e.target.value) : undefined,
-                  })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="0"
-                min="0"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">予算カテゴリ</label>
-              <select
-                value={formData.budgetCategory || ''}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    budgetCategory: e.target.value as BudgetCategory || undefined,
-                  })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">選択なし</option>
-                {Object.entries(budgetCategoryLabels).map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* コスト */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">コスト（円）</label>
+            <input
+              type="number"
+              value={formData.cost || ''}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  cost: e.target.value ? parseFloat(e.target.value) : undefined,
+                })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="0"
+              min="0"
+            />
           </div>
 
           {/* メモ */}

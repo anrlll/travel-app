@@ -238,7 +238,9 @@ export async function getBudgetSummary(tripId: string, userId: string): Promise<
     where: { tripPlanId: tripId },
   });
 
-  // アクティビティの実費を集計
+  // 正式プラン化されたアクティビティの実費を集計
+  // 注: trip_plan_activities は正式プラン化されたアクティビティのみを対象
+  // キャンバスモードの未確定カードは含めない
   const activities = await prisma.tripPlanActivity.findMany({
     where: { tripPlanId: tripId },
     select: {
@@ -250,6 +252,8 @@ export async function getBudgetSummary(tripId: string, userId: string): Promise<
 
   // カテゴリ別実費を計算
   const actualByCategory: Record<string, number> = {};
+
+  // trip_plan_activities から実費を集計
   activities.forEach((activity) => {
     const budgetCategory = activityToBudgetCategoryMap[activity.category] || 'other';
     const cost = decimalToNumber(activity.actualCost || activity.estimatedCost);
@@ -294,17 +298,9 @@ export async function getBudgetComparison(
   // サマリーを取得
   const summaries = await getBudgetSummary(tripId, userId);
 
-  // 全体予算を取得
-  const totalBudgetRecord = await prisma.tripPlanBudget.findUnique({
-    where: {
-      tripPlanId_category: {
-        tripPlanId: tripId,
-        category: 'total',
-      },
-    },
-  });
-
-  const totalBudget = totalBudgetRecord ? decimalToNumber(totalBudgetRecord.budgetAmount) : 0;
+  // 全体予算を計算（個別予算から自動計算）
+  // 「total」カテゴリの有無に関わらず、常に合計が計算される
+  const totalBudget = summaries.reduce((sum, s) => sum + s.budgetAmount, 0);
   const totalActual = summaries.reduce((sum, s) => sum + s.actualAmount, 0);
   const totalDifference = totalBudget - totalActual;
 

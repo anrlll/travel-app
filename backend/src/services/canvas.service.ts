@@ -26,6 +26,57 @@ function emptyStringToNull(value: string | undefined): string | null {
   return value;
 }
 
+/**
+ * HH:mm形式の時間文字列を DateTime に変換
+ * 例: "14:30" → 2025-01-01T14:30:00.000Z形式のDate
+ *
+ * 【背景】
+ * キャンバスカード（canvas_activity_cards）の startTime/endTime は String型（HH:mm形式）
+ * 従来型アクティビティ（trip_plan_activities）の startTime/endTime は DateTime型
+ * 正式プラン化時、キャンバスモデルから従来型モデルへの変換で、型変換が必要
+ */
+function convertTimeStringToDateTime(timeString: string | null | undefined): Date | null {
+  if (!timeString || timeString === '' || timeString === null) {
+    return null;
+  }
+
+  try {
+    const [hours, minutes] = timeString.split(':');
+    const dateTime = new Date();
+    dateTime.setHours(
+      parseInt(hours, 10),
+      parseInt(minutes, 10),
+      0,
+      0
+    );
+    return dateTime;
+  } catch (error) {
+    // パース失敗時はnullを返す（不正な形式を許容）
+    console.warn(`⚠️ Failed to parse time string: ${timeString}`, error);
+    return null;
+  }
+}
+
+/**
+ * ActivityType から BudgetCategory に自動マッピング
+ * カテゴリと予算カテゴリの関連付けルール：
+ * - sightseeing（観光） → sightseeing（観光費）
+ * - restaurant（飲食） → food（食費）
+ * - accommodation（宿泊） → accommodation（宿泊費）
+ * - transport（移動） → transport（交通費）
+ * - other（その他） → other（その他）
+ */
+function mapActivityTypeToBudgetCategory(activityType: string): string {
+  const mapping: Record<string, string> = {
+    sightseeing: 'sightseeing',
+    restaurant: 'food',
+    accommodation: 'accommodation',
+    transport: 'transport',
+    other: 'other',
+  };
+  return mapping[activityType] || 'other';
+}
+
 // 旅行プランとメンバーチェック
 async function getTripPlanWithMemberCheck(tripPlanId: string, userId: string) {
   const tripPlan = await prisma.tripPlan.findUnique({
@@ -154,28 +205,90 @@ export async function getCardById(tripPlanId: string, cardId: string, userId: st
   };
 }
 
-// カード更新
+/**
+ * キャンバスカードを更新
+ *
+ * 【同期仕様】
+ * - canvas_activity_cards は常に更新する
+ * - trip_plan_activities の更新は、カードが正式プラン化されている場合のみ実行される
+ * - 正式プラン化されていないカード編集では、trip_plan_activities は作成・更新されない（正常動作）
+ *
+ * 【背景】
+ * キャンバスモード（新機能）と従来型モード（既存機能）は独立したデータモデルを使用している。
+ * 正式プラン化時に初めて一方向の同期（キャンバス → 従来型）が行われる。
+ * キャンバスモード中は、キャンバスモデルのみが有効である。
+ */
 export async function updateCard(tripPlanId: string, cardId: string, userId: string, data: UpdateCardData) {
   await checkEditPermission(tripPlanId, userId);
 
-  const card = await prisma.canvasActivityCard.update({
-    where: { id: cardId },
-    data: {
-      ...(data.positionX !== undefined && { positionX: data.positionX }),
-      ...(data.positionY !== undefined && { positionY: data.positionY }),
-      ...(data.title !== undefined && { title: data.title }),
-      ...(data.activityType !== undefined && { activityType: data.activityType }),
-      ...(data.location !== undefined && { location: emptyStringToNull(data.location) }),
-      ...(data.customLocation !== undefined && { customLocation: data.customLocation as any }),
-      ...(data.startTime !== undefined && { startTime: emptyStringToNull(data.startTime) }),
-      ...(data.endTime !== undefined && { endTime: emptyStringToNull(data.endTime) }),
-      ...(data.cost !== undefined && { cost: data.cost }),
-      ...(data.budgetCategory !== undefined && { budgetCategory: data.budgetCategory }),
-      ...(data.memo !== undefined && { memo: emptyStringToNull(data.memo) }),
-      ...(data.participants !== undefined && { participants: data.participants as any }),
-      ...(data.isCollapsed !== undefined && { isCollapsed: data.isCollapsed }),
-      ...(data.isCompleted !== undefined && { isCompleted: data.isCompleted }),
-    },
+  // トランザクションで両テーブルを同時に更新
+  const card = await prisma.$transaction(async (tx) => {
+    // activityType が更新される場合、budgetCategory も自動的にマッピング
+    // （フロントエンド側で既に設定されているが、バックエンド側でもフォールバック処理として実施）
+    const budgetCategoryToSave = data.budgetCategory ||
+      (data.activityType !== undefined ? mapActivityTypeToBudgetCategory(data.activityType) : undefined);
+
+    // 1. canvas_activity_cards を更新
+    const updatedCard = await tx.canvasActivityCard.update({
+      where: { id: cardId },
+      data: {
+        ...(data.positionX !== undefined && { positionX: data.positionX }),
+        ...(data.positionY !== undefined && { positionY: data.positionY }),
+        ...(data.title !== undefined && { title: data.title }),
+        ...(data.activityType !== undefined && { activityType: data.activityType }),
+        ...(data.location !== undefined && { location: emptyStringToNull(data.location) }),
+        ...(data.customLocation !== undefined && { customLocation: data.customLocation as any }),
+        ...(data.startTime !== undefined && { startTime: emptyStringToNull(data.startTime) }),
+        ...(data.endTime !== undefined && { endTime: emptyStringToNull(data.endTime) }),
+        ...(data.cost !== undefined && { cost: data.cost }),
+        ...(budgetCategoryToSave !== undefined && { budgetCategory: budgetCategoryToSave }),
+        ...(data.memo !== undefined && { memo: emptyStringToNull(data.memo) }),
+        ...(data.participants !== undefined && { participants: data.participants as any }),
+        ...(data.isCollapsed !== undefined && { isCollapsed: data.isCollapsed }),
+        ...(data.isCompleted !== undefined && { isCompleted: data.isCompleted }),
+      },
+    });
+
+    // 2. 対応する trip_plan_activities も同時に更新（位置情報を除く）
+    // cardId に対応する trip_plan_activities を検索して更新
+    // 注: 正式プラン化されていないカードでは trip_plan_activities は存在しない
+    const activity = await tx.tripPlanActivity.findFirst({
+      where: { tripPlanId, canvasCardId: cardId },
+    });
+
+    if (activity) {
+      // 位置情報（positionX, positionY）は更新しない
+      // それ以外のフィールドを同期
+      await tx.tripPlanActivity.update({
+        where: { id: activity.id },
+        data: {
+          ...(data.title !== undefined && { title: data.title }),
+          ...(data.activityType !== undefined && { category: data.activityType }),
+          ...(data.location !== undefined && { location: emptyStringToNull(data.location) }),
+          // HH:mm形式の startTime を DateTime に変換
+          ...(data.startTime !== undefined && {
+            startTime: convertTimeStringToDateTime(data.startTime),
+          }),
+          // HH:mm形式の endTime を DateTime に変換
+          ...(data.endTime !== undefined && {
+            endTime: convertTimeStringToDateTime(data.endTime),
+          }),
+          // 予算を同期（cost → estimatedCost）
+          ...(data.cost !== undefined && { estimatedCost: data.cost }),
+          ...(data.memo !== undefined && { description: emptyStringToNull(data.memo) }),
+          ...(data.isCompleted !== undefined && { isCompleted: data.isCompleted }),
+        },
+      });
+    } else {
+      // trip_plan_activities が見つからない = キャンバスモードのカード（未正式プラン化）
+      // これは正常な状態。ログレベルを上げて情報提供するのみ
+      console.log(
+        'ℹ️ Canvas card is not yet committed to official plan - trip_plan_activity not found',
+        { tripPlanId, canvasCardId: cardId }
+      );
+    }
+
+    return updatedCard;
   });
 
   return {

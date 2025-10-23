@@ -228,6 +228,19 @@ export const transportTypeLabels: Record<TransportType, string> = {
   other: 'その他',
 };
 
+
+// ActivityType を BudgetCategory に自動マッピングする関数
+export function mapActivityTypeToBudgetCategory(activityType: ActivityType): BudgetCategory {
+  const mapping: Record<ActivityType, BudgetCategory> = {
+    sightseeing: 'sightseeing',  // 観光 → 観光費
+    restaurant: 'food',           // 飲食 → 食費
+    accommodation: 'accommodation', // 宿泊 → 宿泊費
+    transport: 'transport',       // 移動 → 交通費
+    other: 'other',              // その他 → その他
+  };
+  return mapping[activityType];
+}
+
 // アクティビティタイプのアイコン（Tailwind CSSのクラス名）
 export const activityTypeIcons: Record<ActivityType, string> = {
   sightseeing: '🏛️',

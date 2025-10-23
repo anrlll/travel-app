@@ -11,6 +11,7 @@ interface ProposalListProps {
   selectedProposalId: string | null;
   onSelectProposal: (proposalId: string | null) => void;
   onEditProposal: (proposal: TripPlanProposal) => void;
+  onUpdateProposalName: (proposal: TripPlanProposal) => void;
   onDeleteProposal: (proposalId: string) => void;
   onCompareProposals: () => void;
   onDetectProposals: () => void;
@@ -26,6 +27,7 @@ export const ProposalList: React.FC<ProposalListProps> = ({
   selectedProposalId,
   onSelectProposal,
   onEditProposal,
+  onUpdateProposalName,
   onDeleteProposal,
   onCompareProposals,
   onDetectProposals,
@@ -35,7 +37,8 @@ export const ProposalList: React.FC<ProposalListProps> = ({
   tripStartDate,
   tripEndDate,
 }) => {
-  const [expandedProposalId, setExpandedProposalId] = useState<string | null>(null);
+  const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
+  const [editingProposalName, setEditingProposalName] = useState<string>('');
 
   // 利用可能な日程リストを生成
   const getAvailableDates = (): Array<{ value: string; label: string }> => {
@@ -124,15 +127,29 @@ export const ProposalList: React.FC<ProposalListProps> = ({
       {/* プラン案リスト */}
       {proposals.length > 0 && (
         <div className="flex-1 overflow-y-auto space-y-3">
-          {proposals.map((proposal) => {
+          {/* プラン案をソート: 正式プランを最上位に、その次に日程昇順で並び替え */}
+          {[...proposals]
+            .sort((a, b) => {
+              // 1. 正式プランを優先（最上部に表示）
+              if (a.isOfficial !== b.isOfficial) {
+                return a.isOfficial ? -1 : 1; // isOfficial が true のものを上に
+              }
+
+              // 2. 日程が設定されている場合、昇順でソート
+              const dateA = a.proposalDate ? new Date(a.proposalDate).getTime() : Number.MAX_VALUE;
+              const dateB = b.proposalDate ? new Date(b.proposalDate).getTime() : Number.MAX_VALUE;
+
+              return dateA - dateB; // 日付が早い順
+            })
+            .map((proposal) => {
             const isSelected = selectedProposalId === proposal.id;
-            const isExpanded = expandedProposalId === proposal.id;
+            const isEditing = editingProposalId === proposal.id;
             const dateLabel = formatProposalDate(proposal.proposalDate);
 
             return (
               <div
                 key={proposal.id}
-                className={`border-2 rounded-lg p-3 cursor-pointer transition-all ${
+                className={`border-2 rounded-lg p-3 transition-all ${
                   isSelected
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-gray-200 hover:border-gray-300'
@@ -150,22 +167,55 @@ export const ProposalList: React.FC<ProposalListProps> = ({
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: proposal.color }}
                     />
-                    <h3 className="font-bold text-gray-900">{proposal.name}</h3>
+                    {isEditing ? (
+                      <input
+                        autoFocus
+                        type="text"
+                        value={editingProposalName}
+                        onChange={(e) => setEditingProposalName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            if (editingProposalName !== proposal.name && editingProposalName.trim()) {
+                              onUpdateProposalName({
+                                ...proposal,
+                                name: editingProposalName,
+                              });
+                            }
+                            setEditingProposalId(null);
+                          } else if (e.key === 'Escape') {
+                            setEditingProposalId(null);
+                          }
+                        }}
+                        onBlur={() => {
+                          if (editingProposalName !== proposal.name && editingProposalName.trim()) {
+                            onUpdateProposalName({
+                              ...proposal,
+                              name: editingProposalName,
+                            });
+                          }
+                          setEditingProposalId(null);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-2 py-1 border border-blue-500 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    ) : (
+                      <h3
+                        className="font-bold text-gray-900 cursor-pointer hover:text-blue-600"
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setEditingProposalId(proposal.id);
+                          setEditingProposalName(proposal.name);
+                        }}
+                      >
+                        {proposal.name}
+                      </h3>
+                    )}
                     {proposal.isOfficial && (
                       <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded-full">
                         ⭐ 正式
                       </span>
                     )}
                   </div>
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setExpandedProposalId(isExpanded ? null : proposal.id);
-                    }}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    {isExpanded ? '▼' : '▶'}
-                  </Button>
                 </div>
 
                 {/* サマリー */}
@@ -192,9 +242,8 @@ export const ProposalList: React.FC<ProposalListProps> = ({
                   </div>
                 </div>
 
-                {/* 詳細（展開時） */}
-                {isExpanded && (
-                  <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                {/* 詳細情報 */}
+                <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
                     {/* 日程選択 */}
                     <div className="mb-3" onClick={(e) => e.stopPropagation()}>
                       <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -229,30 +278,20 @@ export const ProposalList: React.FC<ProposalListProps> = ({
 
                     {/* アクション */}
                     <div className="flex flex-col gap-2 pt-2">
-                      <div className="flex gap-2">
+                      {/* 削除ボタン */}
+                      {!proposal.isOfficial && (
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onEditProposal(proposal);
+                            if (window.confirm(`${proposal.name}を削除しますか?`)) {
+                              onDeleteProposal(proposal.id);
+                            }
                           }}
-                          className="flex-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                          className="w-full px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700"
                         >
-                          ✏️ 編集
+                          🗑️ 削除
                         </Button>
-                        {!proposal.isOfficial && (
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (window.confirm(`${proposal.name}を削除しますか?`)) {
-                                onDeleteProposal(proposal.id);
-                              }
-                            }}
-                            className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-                          >
-                            🗑️
-                          </Button>
-                        )}
-                      </div>
+                      )}
                       {/* 正式プラン設定/解除ボタン */}
                       {!proposal.isOfficial ? (
                         <Button
@@ -287,8 +326,7 @@ export const ProposalList: React.FC<ProposalListProps> = ({
                         </Button>
                       )}
                     </div>
-                  </div>
-                )}
+                </div>
               </div>
             );
           })}

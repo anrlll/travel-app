@@ -1,6 +1,3 @@
-// Prisma Schema for TravelApp
-// データベース: PostgreSQL 15+
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,30 +7,24 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ========================================
-// ユーザー管理
-// ========================================
-
 model User {
-  id                String    @id @default(cuid())
-  email             String    @unique
-  passwordHash      String    @map("password_hash")
-  username          String    @unique
-  displayName       String?   @map("display_name")
-  profileImageUrl   String?   @map("profile_image_url")
-  locale            String    @default("ja") // 'ja' or 'en'
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
-
-  // リレーション
-  tripPlans         TripPlan[]
-  tripPlanMembers   TripPlanMember[]
-  expenses          Expense[]
-  memories          Memory[]
-  refreshTokens     RefreshToken[]
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  passwordHash        String               @map("password_hash")
+  username            String               @unique
+  displayName         String?              @map("display_name")
+  profileImageUrl     String?              @map("profile_image_url")
+  locale              String               @default("ja")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  expenses            Expense[]
+  friendOf            Friend[]             @relation("friend_of")
+  friendRequests      Friend[]             @relation("user_friends")
+  memories            Memory[]
   passwordResetTokens PasswordResetToken[]
-  friendRequests    Friend[] @relation("user_friends")
-  friendOf          Friend[] @relation("friend_of")
+  refreshTokens       RefreshToken[]
+  tripPlanMembers     TripPlanMember[]
+  tripPlans           TripPlan[]
 
   @@map("users")
 }
@@ -44,7 +35,6 @@ model RefreshToken {
   userId    String   @map("user_id")
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
-
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
@@ -56,42 +46,35 @@ model PasswordResetToken {
   userId    String   @map("user_id")
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
-
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("password_reset_tokens")
 }
 
-// ========================================
-// 旅行プラン
-// ========================================
-
 model TripPlan {
-  id                String           @id @default(cuid())
-  userId            String           @map("user_id")
-  title             String
-  description       String?
-  destinations      Json             @default("[]") // JSONB配列: ["京都", "大阪"]
-  startDate         DateTime?        @map("start_date")
-  endDate           DateTime?        @map("end_date")
-  status            String           @default("draft") // draft, planning, confirmed, completed, cancelled
-  tags              String[]         @default([])
-  notes             String?
-  isPublic          Boolean          @default(false) @map("is_public")
-  createdAt         DateTime         @default(now()) @map("created_at")
-  updatedAt         DateTime         @updatedAt @map("updated_at")
-
-  // リレーション
-  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  members           TripPlanMember[]
-  activities        TripPlanActivity[]
-  budgets           Budget[]
-  tripPlanBudgets   TripPlanBudget[] @relation("TripPlanBudgets")
-  expenses          Expense[]
-  memories          Memory[]
-  canvasCards       CanvasActivityCard[]
-  cardConnections   CardConnection[]
-  proposals         TripPlanProposal[]
+  id              String               @id @default(cuid())
+  userId          String               @map("user_id")
+  title           String
+  description     String?
+  destinations    Json                 @default("[]")
+  startDate       DateTime?            @map("start_date")
+  endDate         DateTime?            @map("end_date")
+  status          String               @default("draft")
+  tags            String[]             @default([])
+  notes           String?
+  isPublic        Boolean              @default(false) @map("is_public")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+  budgets         Budget[]
+  canvasCards     CanvasActivityCard[]
+  cardConnections CardConnection[]
+  expenses        Expense[]
+  memories        Memory[]
+  activities      TripPlanActivity[]
+  tripPlanBudgets TripPlanBudget[]     @relation("TripPlanBudgets")
+  members         TripPlanMember[]
+  proposals       TripPlanProposal[]
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
@@ -100,57 +83,47 @@ model TripPlan {
 }
 
 model TripPlanMember {
-  id              String   @id @default(cuid())
-  tripPlanId      String   @map("trip_plan_id")
-  userId          String?  @map("user_id")
-  guestName       String?  @map("guest_name")
-  guestEmail      String?  @map("guest_email")
-  role            String   @default("viewer") // owner, editor, viewer
-  joinedAt        DateTime @default(now()) @map("joined_at")
-
-  // リレーション
-  tripPlan        TripPlan @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
-  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id                   String                        @id @default(cuid())
+  tripPlanId           String                        @map("trip_plan_id")
+  userId               String?                       @map("user_id")
+  guestName            String?                       @map("guest_name")
+  guestEmail           String?                       @map("guest_email")
+  role                 String                        @default("viewer")
+  joinedAt             DateTime                      @default(now()) @map("joined_at")
   activityParticipants TripPlanActivityParticipant[]
+  tripPlan             TripPlan                      @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
+  user                 User?                         @relation(fields: [userId], references: [id])
 
-  // UNIQUE制約: ユーザーIDがNULLでない場合のみユニーク
   @@unique([tripPlanId, userId], name: "unique_trip_plan_user")
-  // ゲスト用UNIQUE制約: ゲストメールがNULLでない場合のみユニーク
   @@unique([tripPlanId, guestEmail], name: "unique_trip_plan_guest")
   @@index([tripPlanId])
   @@map("trip_plan_members")
 }
 
-// ========================================
-// 旅程管理
-// ========================================
-
 model TripPlanActivity {
-  id                String           @id @default(cuid())
-  tripPlanId        String           @map("trip_plan_id")
-  dayNumber         Int              @map("day_number")
-  order             Int              @default(0)
-  startTime         DateTime?        @map("start_time")
-  endTime           DateTime?        @map("end_time")
-  title             String
-  description       String?
-  category          String           // sightseeing, restaurant, accommodation, transport, other
-  location          String?
-  customLocation    Json?            @map("custom_location") // JSONB: {name, address?, latitude?, longitude?, notes?, url?}
-  estimatedCost     Decimal?         @map("estimated_cost") @db.Decimal(10, 2)
-  actualCost        Decimal?         @map("actual_cost") @db.Decimal(10, 2)
-  notes             String?
-  isCompleted       Boolean          @default(false) @map("is_completed")
-  isFromCanvas      Boolean          @default(false) @map("is_from_canvas") // キャンバスモードから作成されたアクティビティ
-  canvasCardId      String?          @map("canvas_card_id") // キャンバスカードへの参照（双方向同期用）
-  createdAt         DateTime         @default(now()) @map("created_at")
-  updatedAt         DateTime         @updatedAt @map("updated_at")
-
-  // リレーション
-  tripPlan          TripPlan         @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
-  canvasCard        CanvasActivityCard? @relation(fields: [canvasCardId], references: [id], onDelete: SetNull)
-  participants      TripPlanActivityParticipant[]
-  transports        TripPlanActivityTransport[]
+  id             String                        @id @default(cuid())
+  tripPlanId     String                        @map("trip_plan_id")
+  dayNumber      Int                           @map("day_number")
+  order          Int                           @default(0)
+  startTime      DateTime?                     @map("start_time")
+  endTime        DateTime?                     @map("end_time")
+  title          String
+  description    String?
+  category       String
+  location       String?
+  customLocation Json?                         @map("custom_location")
+  estimatedCost  Decimal?                      @map("estimated_cost") @db.Decimal(10, 2)
+  actualCost     Decimal?                      @map("actual_cost") @db.Decimal(10, 2)
+  notes          String?
+  isCompleted    Boolean                       @default(false) @map("is_completed")
+  createdAt      DateTime                      @default(now()) @map("created_at")
+  updatedAt      DateTime                      @updatedAt @map("updated_at")
+  isFromCanvas   Boolean                       @default(false) @map("is_from_canvas")
+  canvasCardId   String?                       @map("canvas_card_id")
+  canvasCard     CanvasActivityCard?           @relation(fields: [canvasCardId], references: [id])
+  tripPlan       TripPlan                      @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
+  participants   TripPlanActivityParticipant[]
+  transports     TripPlanActivityTransport[]
 
   @@index([tripPlanId])
   @@index([dayNumber])
@@ -159,71 +132,54 @@ model TripPlanActivity {
 }
 
 model TripPlanActivityParticipant {
-  id                    String           @id @default(cuid())
-  tripPlanActivityId    String           @map("trip_plan_activity_id")
-  tripPlanMemberId      String           @map("trip_plan_member_id")
-
-  // リレーション
-  activity              TripPlanActivity @relation(fields: [tripPlanActivityId], references: [id], onDelete: Cascade)
-  member                TripPlanMember   @relation(fields: [tripPlanMemberId], references: [id], onDelete: Cascade)
+  id                 String           @id @default(cuid())
+  tripPlanActivityId String           @map("trip_plan_activity_id")
+  tripPlanMemberId   String           @map("trip_plan_member_id")
+  activity           TripPlanActivity @relation(fields: [tripPlanActivityId], references: [id], onDelete: Cascade)
+  member             TripPlanMember   @relation(fields: [tripPlanMemberId], references: [id], onDelete: Cascade)
 
   @@unique([tripPlanActivityId, tripPlanMemberId])
   @@map("trip_plan_activity_participants")
 }
 
 model TripPlanActivityTransport {
-  id                String           @id @default(cuid())
-  tripPlanActivityId String          @map("trip_plan_activity_id")
-  transportType     String           @default("unset") @map("transport_type") // unset, walk, car, train, bus, plane, other
-  durationMinutes   Int?             @map("duration_minutes")
-  distanceKm        Decimal?         @map("distance_km") @db.Decimal(10, 2)
-  cost              Decimal?         @db.Decimal(10, 2)
-  routeData         Json?            @map("route_data") // 地図API用ルートデータ
-  isAutoCalculated  Boolean          @default(true) @map("is_auto_calculated")
-
-  // リレーション
-  activity          TripPlanActivity @relation(fields: [tripPlanActivityId], references: [id], onDelete: Cascade)
+  id                 String           @id @default(cuid())
+  tripPlanActivityId String           @map("trip_plan_activity_id")
+  transportType      String           @default("unset") @map("transport_type")
+  durationMinutes    Int?             @map("duration_minutes")
+  distanceKm         Decimal?         @map("distance_km") @db.Decimal(10, 2)
+  cost               Decimal?         @db.Decimal(10, 2)
+  routeData          Json?            @map("route_data")
+  isAutoCalculated   Boolean          @default(true) @map("is_auto_calculated")
+  activity           TripPlanActivity @relation(fields: [tripPlanActivityId], references: [id], onDelete: Cascade)
 
   @@map("trip_plan_activity_transport")
 }
 
-// ========================================
-// キャンバスプランニング
-// ========================================
-
 model CanvasActivityCard {
-  id              String   @id @default(cuid())
-  tripPlanId      String   @map("trip_plan_id")
-
-  // カードの位置
-  positionX       Decimal  @map("position_x") @db.Decimal(10, 2)
-  positionY       Decimal  @map("position_y") @db.Decimal(10, 2)
-
-  // アクティビティ情報
-  title           String
-  activityType    String   @map("activity_type") // sightseeing, restaurant, accommodation, transport, other
-  location        String?
-  customLocation  Json?    @map("custom_location") // {name, address, latitude, longitude, notes, url}
-  startTime       String?  @map("start_time") // HH:mm形式
-  endTime         String?  @map("end_time")
-  cost            Decimal? @db.Decimal(10, 2)
-  budgetCategory  String?  @map("budget_category") // food, transport, accommodation, sightseeing, other
-  memo            String?
-  participants    Json?    // メンバーID配列
-
-  // カードの状態
-  isCollapsed     Boolean  @default(false) @map("is_collapsed")
-  isCompleted     Boolean  @default(false) @map("is_completed")
-
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-
-  // リレーション
-  tripPlan        TripPlan @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
-  connectionsFrom CardConnection[] @relation("FromCard")
-  connectionsTo   CardConnection[] @relation("ToCard")
+  id                 String             @id @default(cuid())
+  tripPlanId         String             @map("trip_plan_id")
+  positionX          Decimal            @map("position_x") @db.Decimal(10, 2)
+  positionY          Decimal            @map("position_y") @db.Decimal(10, 2)
+  title              String
+  activityType       String             @map("activity_type")
+  location           String?
+  customLocation     Json?              @map("custom_location")
+  startTime          String?            @map("start_time")
+  endTime            String?            @map("end_time")
+  cost               Decimal?           @db.Decimal(10, 2)
+  budgetCategory     String?            @map("budget_category")
+  memo               String?
+  participants       Json?
+  isCollapsed        Boolean            @default(false) @map("is_collapsed")
+  isCompleted        Boolean            @default(false) @map("is_completed")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  tripPlan           TripPlan           @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
+  connectionsFrom    CardConnection[]   @relation("FromCard")
+  connectionsTo      CardConnection[]   @relation("ToCard")
   proposalActivities ProposalActivity[]
-  tripPlanActivities TripPlanActivity[] // 双方向同期用
+  tripPlanActivities TripPlanActivity[]
 
   @@index([tripPlanId])
   @@index([positionX, positionY])
@@ -231,28 +187,21 @@ model CanvasActivityCard {
 }
 
 model CardConnection {
-  id              String   @id @default(cuid())
-  tripPlanId      String   @map("trip_plan_id")
-  fromCardId      String   @map("from_card_id")
-  toCardId        String   @map("to_card_id")
-
-  // 移動情報
-  transportType   String?  @default("unset") @map("transport_type") // unset, walk, car, train, bus, plane, other
-  durationMinutes Int?     @map("duration_minutes")
-  distanceKm      Decimal? @map("distance_km") @db.Decimal(8, 2)
-  cost            Decimal? @db.Decimal(10, 2)
-  routeData       Json?    @map("route_data")
-
-  // プラン案への割り当て
-  proposalId      String?  @map("proposal_id")
-
-  createdAt       DateTime @default(now()) @map("created_at")
-
-  // リレーション
-  tripPlan        TripPlan @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
+  id              String             @id @default(cuid())
+  tripPlanId      String             @map("trip_plan_id")
+  fromCardId      String             @map("from_card_id")
+  toCardId        String             @map("to_card_id")
+  transportType   String?            @default("unset") @map("transport_type")
+  durationMinutes Int?               @map("duration_minutes")
+  distanceKm      Decimal?           @map("distance_km") @db.Decimal(8, 2)
+  cost            Decimal?           @db.Decimal(10, 2)
+  routeData       Json?              @map("route_data")
+  proposalId      String?            @map("proposal_id")
+  createdAt       DateTime           @default(now()) @map("created_at")
   fromCard        CanvasActivityCard @relation("FromCard", fields: [fromCardId], references: [id], onDelete: Cascade)
+  proposal        TripPlanProposal?  @relation(fields: [proposalId], references: [id])
   toCard          CanvasActivityCard @relation("ToCard", fields: [toCardId], references: [id], onDelete: Cascade)
-  proposal        TripPlanProposal? @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+  tripPlan        TripPlan           @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
 
   @@unique([fromCardId, toCardId])
   @@index([tripPlanId])
@@ -263,29 +212,20 @@ model CardConnection {
 }
 
 model TripPlanProposal {
-  id              String   @id @default(cuid())
-  tripPlanId      String   @map("trip_plan_id")
-
-  // プラン案情報
+  id              String             @id @default(cuid())
+  tripPlanId      String             @map("trip_plan_id")
   name            String
-  color           String   // HEX色コード (#3B82F6, #10B981, etc.)
-  isOfficial      Boolean  @default(false) @map("is_official")
-
-  // 日程情報（1日単位のプラン案）
-  proposalDate    DateTime? @map("proposal_date") // このプラン案が適用される日付
-
-  // プラン案のメタ情報（自動計算でキャッシュ）
-  totalBudget     Decimal? @map("total_budget") @db.Decimal(10, 2)
-  activityCount   Int?     @map("activity_count")
-  totalDistanceKm Decimal? @map("total_distance_km") @db.Decimal(10, 2)
-
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-
-  // リレーション
-  tripPlan        TripPlan @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
-  activities      ProposalActivity[]
+  color           String
+  isOfficial      Boolean            @default(false) @map("is_official")
+  totalBudget     Decimal?           @map("total_budget") @db.Decimal(10, 2)
+  activityCount   Int?               @map("activity_count")
+  totalDistanceKm Decimal?           @map("total_distance_km") @db.Decimal(10, 2)
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  proposalDate    DateTime?          @map("proposal_date")
   connections     CardConnection[]
+  activities      ProposalActivity[]
+  tripPlan        TripPlan           @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
 
   @@index([tripPlanId])
   @@index([isOfficial])
@@ -294,17 +234,13 @@ model TripPlanProposal {
 }
 
 model ProposalActivity {
-  id          String   @id @default(cuid())
-  proposalId  String   @map("proposal_id")
-  cardId      String   @map("card_id")
-
-  // 日程割り当て
-  dayNumber   Int?     @map("day_number")
-  orderInDay  Int?     @map("order_in_day")
-
-  // リレーション
-  proposal    TripPlanProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  card        CanvasActivityCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  id         String             @id @default(cuid())
+  proposalId String             @map("proposal_id")
+  cardId     String             @map("card_id")
+  dayNumber  Int?               @map("day_number")
+  orderInDay Int?               @map("order_in_day")
+  card       CanvasActivityCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  proposal   TripPlanProposal   @relation(fields: [proposalId], references: [id], onDelete: Cascade)
 
   @@unique([proposalId, cardId])
   @@index([proposalId])
@@ -312,39 +248,30 @@ model ProposalActivity {
   @@map("proposal_activities")
 }
 
-// ========================================
-// 予算管理
-// ========================================
-
 model Budget {
-  id          String   @id @default(cuid())
-  tripPlanId  String   @map("trip_plan_id")
-  category    String   // transportation, accommodation, food, activity, shopping, other
-  amount      Decimal  @db.Decimal(10, 2)
-  currency    String   @default("JPY")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  // リレーション
-  tripPlan    TripPlan @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  tripPlanId String   @map("trip_plan_id")
+  category   String
+  amount     Decimal  @db.Decimal(10, 2)
+  currency   String   @default("JPY")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  tripPlan   TripPlan @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
 
   @@index([tripPlanId])
   @@map("budgets")
 }
 
-// 新しい予算管理モデル（Phase 2.3）
 model TripPlanBudget {
-  id            String   @id @default(cuid())
-  tripPlanId    String   @map("trip_plan_id")
-  category      String   // 'food', 'transport', 'accommodation', 'sightseeing', 'other', 'total'
-  budgetAmount  Decimal  @map("budget_amount") @db.Decimal(10, 2)
-  isPerPerson   Boolean  @default(false) @map("is_per_person")
-  notes         String?
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  // リレーション
-  tripPlan      TripPlan @relation("TripPlanBudgets", fields: [tripPlanId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  tripPlanId   String   @map("trip_plan_id")
+  category     String
+  budgetAmount Decimal  @map("budget_amount") @db.Decimal(10, 2)
+  isPerPerson  Boolean  @default(false) @map("is_per_person")
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  tripPlan     TripPlan @relation("TripPlanBudgets", fields: [tripPlanId], references: [id], onDelete: Cascade)
 
   @@unique([tripPlanId, category])
   @@index([tripPlanId])
@@ -355,18 +282,16 @@ model Expense {
   id              String   @id @default(cuid())
   tripPlanId      String   @map("trip_plan_id")
   userId          String   @map("user_id")
-  category        String   // transportation, accommodation, food, activity, shopping, other
+  category        String
   amount          Decimal  @db.Decimal(10, 2)
   currency        String   @default("JPY")
   description     String?
   expenseDate     DateTime @map("expense_date")
-  paymentMethod   String?  @map("payment_method") // cash, credit_card, debit_card, other
+  paymentMethod   String?  @map("payment_method")
   receiptImageUrl String?  @map("receipt_image_url")
-  participants    Json?    // JSONB配列: 割り勘参加者のmember_id
+  participants    Json?
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
-
-  // リレーション
   tripPlan        TripPlan @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -376,29 +301,23 @@ model Expense {
   @@map("expenses")
 }
 
-// ========================================
-// 思い出の記録
-// ========================================
-
 model Memory {
-  id          String   @id @default(cuid())
-  tripPlanId  String   @map("trip_plan_id")
-  userId      String   @map("user_id")
-  title       String?
-  content     String?
-  mediaType   String?  @map("media_type") // photo, video, text
-  mediaUrl    String?  @map("media_url") // Phase 1: Base64, Phase 2+: R2 URL
-  latitude    Decimal? @db.Decimal(10, 8)
-  longitude   Decimal? @db.Decimal(11, 8)
-  rating      Int?     // 1-5
-  tags        String[] @default([])
-  takenAt     DateTime? @map("taken_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  // リレーション
-  tripPlan    TripPlan @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String    @id @default(cuid())
+  tripPlanId String    @map("trip_plan_id")
+  userId     String    @map("user_id")
+  title      String?
+  content    String?
+  mediaType  String?   @map("media_type")
+  mediaUrl   String?   @map("media_url")
+  latitude   Decimal?  @db.Decimal(10, 8)
+  longitude  Decimal?  @db.Decimal(11, 8)
+  rating     Int?
+  tags       String[]  @default([])
+  takenAt    DateTime? @map("taken_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  tripPlan   TripPlan  @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tripPlanId])
   @@index([userId])
@@ -406,23 +325,16 @@ model Memory {
   @@map("memories")
 }
 
-// ========================================
-// フレンド管理
-// ========================================
-
 model Friend {
-  id              String   @id @default(cuid())
-  userId          String   @map("user_id")
-  friendUserId    String   @map("friend_user_id")
-  status          String   @default("pending") @map("status") // pending, accepted, rejected, blocked
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  friendUserId String   @map("friend_user_id")
+  status       String   @default("pending") @map("status")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  friendUser   User     @relation("friend_of", fields: [friendUserId], references: [id], onDelete: Cascade)
+  user         User     @relation("user_friends", fields: [userId], references: [id], onDelete: Cascade)
 
-  // リレーション
-  user            User     @relation("user_friends", fields: [userId], references: [id], onDelete: Cascade)
-  friendUser      User     @relation("friend_of", fields: [friendUserId], references: [id], onDelete: Cascade)
-
-  // ユニーク制約：同じペアは1つだけ
   @@unique([userId, friendUserId], name: "unique_friendship")
   @@index([userId])
   @@index([friendUserId])

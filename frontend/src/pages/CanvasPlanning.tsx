@@ -24,6 +24,7 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import { useCanvasStore } from '../stores/canvasStore';
+import { useActivityStore } from '../stores/activityStore';
 import { ActivityCardNode } from '../components/canvas/ActivityCardNode';
 import { ConnectionEdge } from '../components/canvas/ConnectionEdge';
 import { CardEditDialog } from '../components/canvas/CardEditDialog';
@@ -528,6 +529,24 @@ const CanvasPlanningInner: React.FC = () => {
               return node;
             })
           );
+
+          // 正式プラン化されているカードの場合のみ、日程タブを同期
+          // キャンバスモード中のカード編集では、キャンバスモデルのみが有効
+          const isCardInOfficialProposal = proposals.some((p) =>
+            p.isOfficial && p.activities?.some((a) => a.cardId === editingCard.id)
+          );
+
+          if (isCardInOfficialProposal) {
+            const { fetchActivities } = useActivityStore.getState();
+            if (fetchActivities) {
+              // 非同期で実行（UIブロッキングを避ける）
+              setTimeout(() => {
+                fetchActivities(tripId).catch((err) => {
+                  console.error('アクティビティ再取得エラー:', err);
+                });
+              }, 0);
+            }
+          }
         } else {
           // 新規カード作成
           // 現在のビューポートを保存
@@ -565,6 +584,9 @@ const CanvasPlanningInner: React.FC = () => {
               reactFlowInstance.setViewport(viewportRef.current, { duration: 0 });
             }
           });
+
+          // 新規カード作成では、日程タブの同期は不要
+          // （新規キャンバスカードは従来型モデルに対応していない）
         }
         setIsDialogOpen(false);
         setEditingCard(null);
@@ -574,7 +596,7 @@ const CanvasPlanningInner: React.FC = () => {
         throw error;
       }
     },
-    [tripId, editingCard, createCard, updateCard, reactFlowInstance, setNodes, handleEditCard, handleDeleteCard]
+    [tripId, editingCard, createCard, updateCard, reactFlowInstance, setNodes, handleEditCard, handleDeleteCard, proposals]
   );
 
   // ノード移動ハンドラー（ドラッグ終了時）
@@ -735,10 +757,30 @@ const CanvasPlanningInner: React.FC = () => {
     [tripId, deleteProposal]
   );
 
-  const handleSelectOfficialProposal = useCallback((proposal: TripPlanProposal) => {
-    setSelectingOfficialProposal(proposal);
-    setIsOfficialSelectionOpen(true);
-  }, []);
+  // プラン案名を更新（ダイアログなし）
+  const handleUpdateProposalName = useCallback(
+    async (proposal: TripPlanProposal) => {
+      if (!tripId) return;
+      try {
+        await updateProposal(tripId, proposal.id, {
+          name: proposal.name,
+        });
+      } catch (error) {
+        console.error('プラン案名更新エラー:', error);
+        alert('プラン案名の更新に失敗しました');
+      }
+    },
+    [tripId, updateProposal]
+  );
+
+  const handleSelectOfficialProposal = useCallback(async (proposal: TripPlanProposal) => {
+    try {
+      await selectOfficialProposal(tripId, proposal.id);
+    } catch (error) {
+      console.error('正式プラン設定エラー:', error);
+      alert('正式プランの設定に失敗しました');
+    }
+  }, [tripId, selectOfficialProposal]);;
 
   const handleConfirmOfficialSelection = useCallback(async () => {
     if (!tripId || !selectingOfficialProposal) return;
@@ -765,18 +807,14 @@ const CanvasPlanningInner: React.FC = () => {
     async (proposal: TripPlanProposal) => {
       if (!tripId) return;
       try {
-        if (!window.confirm(`${proposal.name}を正式プランから解除しますか？\n日程タブから予定が削除されます。`)) {
-          return;
-        }
         await unselectOfficialProposal(tripId, proposal.id);
-        alert(`✅ ${proposal.name}を正式プランから解除しました`);
       } catch (error) {
         console.error('正式プラン解除エラー:', error);
         alert('正式プラン解除に失敗しました');
       }
     },
     [tripId, unselectOfficialProposal]
-  );
+  );;;
 
   const handleUpdateProposalDate = useCallback(
     async (proposalId: string, proposalDate: string) => {
@@ -957,6 +995,7 @@ const CanvasPlanningInner: React.FC = () => {
               selectedProposalId={selectedProposalId}
               onSelectProposal={selectProposal}
               onEditProposal={handleEditProposal}
+              onUpdateProposalName={handleUpdateProposalName}
               onDeleteProposal={handleDeleteProposal}
               onCompareProposals={() => setIsComparisonOpen(true)}
               onDetectProposals={handleDetectProposals}
